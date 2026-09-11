@@ -1,0 +1,26 @@
+# Analysis environment. conda provides Python and the native libraries;
+# requirements.lock pins every Python package at the version used for the
+# reported results and is installed without dependency resolution. See
+# EXTERNALS.md for the one declared inconsistency pip check reports.
+#
+# Create, in this order:
+#     conda env create -f environment.yml -p <prefix>
+#     conda run -p <prefix> pip install --no-deps -r requirements.lock
+#     conda run -p <prefix> pip install --no-deps -e external/trident   # the tagged Trident fork
+#     conda run -p <prefix> pip install --no-deps -e .                  # champs_pipeline
+#     conda run -p <prefix> pip check                                   # expect only the opencv/numpy line
+# On a GPU node with nvcc, for MamMIL only:
+#     conda run -p <prefix> pip install --no-deps -r requirements-gpu-build.txt
+#
+# Trident is installed without its declared dependencies: its metadata pins
+# timm 0.9.16, which the fork no longer requires; its runtime dependencies
+# are in requirements.lock.
+name: champs-repro
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10.19
+  - openslide=3.4.1
+  - libtiff=4.5.1
+  - openjpeg=2.5.0
+  - pip
