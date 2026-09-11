@@ -3,18 +3,14 @@
 # reported results and is installed without dependency resolution. See
 # EXTERNALS.md for the one declared inconsistency pip check reports.
 #
-# Create, in this order:
-#     conda env create -f environment.yml -p <prefix>
-#     conda run -p <prefix> pip install --no-deps -r requirements.lock
-#     conda run -p <prefix> pip install --no-deps -e external/trident   # the tagged Trident fork
-#     conda run -p <prefix> pip install --no-deps -e .                  # champs_pipeline
-#     conda run -p <prefix> pip check                                   # expect only the opencv/numpy line
-# On a GPU node with nvcc, for MamMIL only:
-#     conda run -p <prefix> pip install --no-deps -r requirements-gpu-build.txt
+# Build and verify from the repository root:
+#     make env          # ENV_PREFIX=<path> to choose the location
+#     make env-check
+#     make env-gpu      # on a machine with nvcc; MamMIL only
 #
-# Trident is installed without its declared dependencies: its metadata pins
-# timm 0.9.16, which the fork no longer requires; its runtime dependencies
-# are in requirements.lock.
+# Trident is installed unmodified from upstream at v0.2.3 without its
+# declared dependencies: its metadata pins timm 0.9.16, which is not
+# required; its runtime dependencies are in requirements.lock.
 name: champs-repro
 channels:
   - conda-forge

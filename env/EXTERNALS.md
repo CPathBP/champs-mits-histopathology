@@ -7,6 +7,7 @@ given relative to the data directory (`DATA_ROOT`) and the model cache
 
 ## Python environment
 
+`make env` builds the environment and `make env-check` verifies it.
 `environment.yml` provides Python 3.10.19 and the native libraries
 (OpenSlide 3.4.1, libtiff 4.5.1, OpenJPEG 2.5.0). `requirements.lock` pins
 every Python package at the version used; it is installed without
@@ -23,7 +24,8 @@ timm 1.0.27, pylance 4.0.1, statsmodels 0.15.0.
 ## Whole-slide processing
 
 Feature extraction uses Trident v0.2.3 (commit `adf3b7e8`,
-CC BY-NC-ND 4.0), installed unmodified from the upstream repository. Two
+CC BY-NC-ND 4.0), installed unmodified from the upstream repository at that
+tag. Two
 adaptations are applied at runtime by this package rather than by changing
 Trident's source, which its licence does not permit to redistribute in
 modified form:
