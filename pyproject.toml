@@ -20,6 +20,11 @@ dependencies = [
     "torchvision",
     "timm",
     "pillow",
+    "pyarrow",
+    "pyyaml",
+    "jinja2",
+    "requests",
+    "matplotlib",
 ]
 
 [tool.setuptools.packages.find]

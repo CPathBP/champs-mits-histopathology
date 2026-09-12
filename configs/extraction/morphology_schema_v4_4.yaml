@@ -1,0 +1,1729 @@
+# Morphology extraction schema.
+#
+# This schema defines the morphological findings a language model extracts
+# from CHAMPS pathology reports, the synonyms that route prose to each
+# finding, and the modifiers that capture how each finding is qualified.
+#
+# Standing extraction principles:
+#
+# * Faithful literal extraction. Record what the pathologist actually
+#   wrote. Do not infer composition, syndrome substrates, or clinical
+#   class from organ context. Clinical inference is deferred to a
+#   downstream resolver that consumes TAC, IHC, and lab results plus
+#   optional priors, where the assignment is auditable and can be
+#   NaN-masked.
+#
+# * Severity is a 5-bin ladder. Each finding's `severity_values` is
+#   `[minimal, mild, moderate, severe, extensive]` (or empty when the
+#   corpus never grades the finding). Amount words map onto the ladder:
+#     minimal / rare / few / occasional / scant / sparse / infrequent / minor -> minimal
+#     mild / slight -> mild
+#     moderate -> moderate
+#     severe / marked / abundant / numerous / many / heavy -> severe
+#     extensive / massive / widespread -> extensive
+#   The outer rungs collapse onto their neighbours (minimal -> mild,
+#   extensive -> severe) for any analysis that needs the 3-bin ladder.
+#
+# * Some findings are split per organ because their enums differ by
+#   organ: necrosis, congestion, hemorrhage, and hemosiderin each have
+#   liver / lung / CNS variants. Other findings (hemozoin_pigment,
+#   viral_inclusions, bacterial_colonies, fungal,
+#   intraerythrocytic_parasites, edema, fibrin, thrombosis, granulomas,
+#   calcification, EMH, atypical cells) are cross-organ.
+#
+# * Pigment is recorded by what is named. Emit `hemozoin_pigment` only
+#   when the report states hemozoin / malarial pigment or describes the
+#   pigment as polarizable or birefringent. Emit `*_hemosiderin` only
+#   when iron is named (hemosiderin, hemosiderosis, iron stain,
+#   iron-laden, siderophage, Perls, Prussian blue). Pigment described by
+#   colour or location alone routes to `pigment_unspecified`.
+#
+# * DAD and `diffuse_alveolar_damage` are literal labels. Record the
+#   term as the pathologist wrote it; when inner morphology is also
+#   named, emit both the literal label and the named substrates.
+#
+# * Modifiers capture severity, extent, character, and location for each
+#   finding.
+
+schema_version: "v4.4"
+
+organs:
+  - right_lung
+  - left_lung
+  - liver
+  - cns_post
+  - cns_trans
+
+# All sources. site_report is extracted as an independent source; consumers
+# filter it downstream when a CPL-only view is needed.
+# `implicit_cpl` covers headerless reports that lexically score as CPL
+# physical-slide content (HEADERLESS origin per `attribute_origin`); these
+# read as CPL_SLIDES vocabulary, so they are routed as a CPL_SLIDES
+# surrogate.
+text_sources:
+  - site_report
+  - cpl_review_of_scans
+  - cpl_slides
+  - implicit_cpl
+
+# ---------------------------------------------------------------------------
+# Conditions: positive morphological findings
+# ---------------------------------------------------------------------------
+
+conditions:
+
+  # ===========================================================================
+  # INFLAMMATION (named by anatomic compartment; character via modifier)
+  # ===========================================================================
+
+  - name: bronchopneumonia
+    organs: [right_lung, left_lung]
+    description: >-
+      Neutrophilic infiltrate filling alveolar spaces. Typically
+      neutrophilic / suppurative, with mixed / mononuclear /
+      eosinophilic variants also seen; put the character in
+      `modifiers.inflammation_character`. DO NOT also emit a separate
+      `pneumonitis` finding for the same clause unless interstitial
+      inflammation is independently described. In LUNG context
+      "suppurative inflammation" / "suppurative pneumonia" / "purulent
+      pneumonia" are synonyms for bronchopneumonia. (In other organs,
+      "suppurative" is a character qualifier, not bronchopneumonia.)
+      Necrotizing BPN → emit BOTH `bronchopneumonia` AND `lung_necrosis`.
+      "Aspiration pneumonia" only routes here when aspirated material is
+      named in the same clause OR the phrase appears in a lung morphology
+      block (not a clinical preamble). An aspiration clause that names
+      suppurative / neutrophilic / acute inflammation co-fires
+      bronchopneumonia alongside the aspiration finding; a bare "with
+      inflammation" sets the aspiration modifier only.
+    synonyms:
+      - bronchopneumonia
+      - "broncho-pneumonia"
+      - "neutrophilic alveolar infiltrate"
+      - "intraalveolar neutrophils"
+      - "intraalveolar neutrophilic inflammation"
+      - "intra-alveolar neutrophils with fibrin"
+      - "swaths of neutrophils"
+      - "mixed inflammatory infiltrate in alveolar spaces"
+      - "suppurative pneumonia"
+      - "suppurative inflammation"
+      - "purulent pneumonia"
+      - "acute bacterial pneumonia"
+      - "neutrophilic pneumonia"
+      - "necrotizing bronchopneumonia"
+      - "necrotizing pneumonia"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, patchy, diffuse, scattered]
+    modifiers:
+      inflammation_character: [neutrophilic, mononuclear_lymphocytic, mixed, eosinophilic]
+
+  - name: pneumonitis
+    organs: [right_lung, left_lung]
+    description: >-
+      Interstitial inflammation widening alveolar septa. Use this for
+      ANY interstitial inflammation regardless of cellular character;
+      put the character in `modifiers.inflammation_character`. Includes
+      "interstitial pneumonitis", "interstitial inflammation",
+      "interstitial mononuclear / lymphocytic / mixed infiltrate", and
+      subclinical phrasings ("increased interstitial inflammatory
+      infiltrate", "increased interstitial mononuclear cells",
+      "increased interstitial lymphocytes", "rare interstitial
+      eosinophils", "scattered interstitial inflammation"). Distinct
+      from bronchopneumonia (which is intra-alveolar). Mononuclear
+      character includes `lymphohistiocytic`, `lymphoplasmacytic`,
+      `lymphocytic`, `plasmacytic`, `histiocytic` phrasings;
+      collapse all to `mononuclear_lymphocytic`. RDS lungs with
+      pneumonitis are legitimate co-fires with `hyaline_membranes`;
+      both should fire.
+    synonyms:
+      - "interstitial pneumonitis"
+      - "interstitial inflammation"
+      - "interstitial infiltrate"
+      - "interstitial mononuclear infiltrate"
+      - "interstitial lymphocytic infiltrate"
+      - "interstitial mixed inflammation"
+      - "septal thickening with inflammation"
+      - "widening of alveolar septa"
+      - "alveolar septal expansion"
+      - "mononuclear cells"
+      - "mononuclear infiltrate"
+      - "lymphoplasmacytic"
+      - "lymphohistiocytic"
+      - "lymphocytic pneumonitis"
+      - "mononuclear interstitial pneumonitis"
+      - "mixed interstitial pneumonitis"
+      - "increased interstitial inflammatory infiltrate"
+      - "increased interstitial mononuclear cells"
+      - "increased interstitial lymphocytes"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, patchy, diffuse, scattered]
+    modifiers:
+      inflammation_character: [neutrophilic, mononuclear_lymphocytic, mixed, eosinophilic]
+
+  - name: bronchiolitis
+    organs: [right_lung, left_lung]
+    description: >-
+      Inflammation centered on bronchioles (airway-wall finding). Route
+      large-airway phrasings ("lymphohistiocytic bronchitis") elsewhere;
+      bronchitis is NOT bronchiolitis.
+    synonyms:
+      - bronchiolitis
+      - "acute bronchiolitis"
+      - "necrotizing bronchiolitis"
+      - "chronic bronchiolitis"
+      - "peribronchiolar lymphocytic infiltrate"
+      - "peribronchial"
+      - intrabronchiolar
+      - "bronchiolar wall infiltrate"
+      - "submucosal mononuclear inflammation"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal]
+    modifiers:
+      inflammation_character: [neutrophilic, mononuclear_lymphocytic, mixed, eosinophilic]
+
+  - name: pleuritis
+    organs: [right_lung, left_lung]
+    description: >-
+      Pleural surface inflammation (often fibrinous). Route
+      `fibrinous pleuritis` / `fibrin in pleural surface` here with
+      `inflammation_character` if applicable; do NOT emit a separate
+      `fibrin` finding for pleural fibrin.
+    synonyms: [pleuritis, "pleural inflammation", "fibrinous pleuritis", "fibrin in pleural surface"]
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal]
+    modifiers:
+      inflammation_character: [neutrophilic, mononuclear_lymphocytic, mixed]
+
+  - name: organizing_pneumonia
+    organs: [right_lung, left_lung]
+    description: "Intraluminal connective tissue plugs in distal airspaces (BOOP / Masson bodies)."
+    synonyms: ["organizing pneumonia", BOOP, "Masson bodies", "intraluminal organization"]
+    severity_values: []
+    extent_values: [focal, multifocal, patchy]
+    modifiers: {}
+
+  - name: meningitis
+    organs: [cns_post, cns_trans]
+    description: >-
+      Meningeal inflammation. Use `modifiers.inflammation_character`
+      for neutrophilic / lymphocytic / mixed character. Mononuclear
+      character includes `lymphohistiocytic` phrasings.
+      NOTE: requires meninges to be present in the sample; if "no
+      meninges present" is noted, emit the `no_meninges_present`
+      quality flag and do NOT emit a meningitis finding.
+      "Meningoencephalitis" → emit BOTH `meningitis` AND `encephalitis`
+      (emit one finding per side per condition).
+      "Granulomatous meningitis" → use `granulomas` finding instead.
+      "Choroiditis" / "choroid plexus inflammation" → emit as
+      `meningitis` with character.
+      Meningitis + intracellular/intravascular bacteria in the same
+      clause → co-emit `bacterial_colonies`.
+    synonyms:
+      - meningitis
+      - "neutrophilic meningitis"
+      - "lymphocytic meningitis"
+      - "purulent meningitis"
+      - "mixed meningitis"
+      - "suppurative meningitis"
+      - "suppurative inflammation"
+      - "mononuclear infiltrate in the meninges"
+      - "lymphohistiocytic meningitis"
+      - choroiditis
+      - "choroid plexus inflammation"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal]
+    modifiers:
+      inflammation_character: [neutrophilic, mononuclear_lymphocytic, mixed]
+
+  - name: encephalitis
+    organs: [cns_post, cns_trans]
+    description: >-
+      Brain parenchyma inflammation. Includes cerebritis,
+      meningoencephalitis, ventriculitis as the same morphological
+      category. For "meningoencephalitis" co-emit `meningitis` AS
+      WELL as encephalitis. Use `modifiers.inflammation_character`
+      for cellular composition; `lymphohistiocytic` and
+      `lymphoplasmacytic` collapse to `mononuclear_lymphocytic`.
+      Use `modifiers.leukocytosis_compartment` to disambiguate pure
+      intravascular leukocytosis (sepsis pattern that resembles
+      encephalitis but is actually intravascular) from parenchymal
+      encephalitis. If the report says only "intravascular leukocytosis"
+      WITHOUT parenchymal cell infiltrate, do NOT emit encephalitis;
+      emit `lung_intravascular_leukocytosis` (lung) or set the modifier
+      `leukocytosis_compartment=intravascular` with character only
+      (CNS).
+      Microglial nodules + parenchymal inflammation → emit BOTH this
+      finding AND `gliosis` (with `gliosis_pattern: microglial_nodule`).
+    synonyms:
+      - encephalitis
+      - meningoencephalitis
+      - cerebritis
+      - ventriculitis
+      - "parenchymal inflammation"
+      - "lymphohistiocytic encephalitis"
+      - "lymphohistiocytic meningoencephalitis"
+      - "pyogranulomatous inflammation"
+      - "inflammation of uncertain etiology"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, patchy, scattered]
+    modifiers:
+      inflammation_character: [neutrophilic, mononuclear_lymphocytic, mixed]
+      leukocytosis_compartment: [intravascular, parenchymal, both]
+
+  - name: perivascular_inflammation
+    organs: [cns_post, cns_trans]
+    description: "Perivascular inflammatory cuffing in brain."
+    synonyms: ["perivascular inflammation", "perivascular cuffing", "perivascular lymphocytes"]
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal]
+    modifiers:
+      inflammation_character: [mononuclear_lymphocytic, mixed, eosinophilic]
+
+  - name: hepatic_inflammation_portal
+    organs: [liver]
+    description: >-
+      Portal-tract inflammation (includes "cholangitis", "biliary
+      inflammation", "ductulitis", "portal triaditis", "portal-based
+      inflammation"). Use `modifiers.inflammation_character` for
+      composition. Mononuclear character includes `lymphohistiocytic`,
+      `lymphoplasmacytic`, `histiocytic`, `plasmacytic` phrasings;
+      collapse to `mononuclear_lymphocytic`.
+      "Interface hepatitis" routes to `hepatic_inflammation_lobular`,
+      not here.
+      The `chronic` adjective is not a separate axis: discard
+      `acuity=chronic`.
+    synonyms:
+      - "portal inflammation"
+      - "portal infiltrate"
+      - "periportal inflammation"
+      - "portal mononuclear infiltrate"
+      - "portal lymphocytic infiltrate"
+      - "portal mixed infiltrate"
+      - "portal neutrophilic infiltrate"
+      - "portal hepatitis"
+      - "portal triaditis"
+      - "portal-based inflammation"
+      - cholangitis
+      - "biliary inflammation"
+      - ductulitis
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, scattered, patchy, diffuse]
+    modifiers:
+      inflammation_character: [neutrophilic, mononuclear_lymphocytic, mixed, eosinophilic]
+
+  - name: hepatic_inflammation_lobular
+    organs: [liver]
+    description: >-
+      Intra-lobular inflammation. Use `modifiers.inflammation_character`.
+      Includes interface hepatitis. "Active hepatitis" / "chronic
+      hepatitis" without further qualifier route here.
+      Note: `lobular disarray` is an architectural descriptor (not
+      inflammation); do NOT trigger on it.
+    synonyms:
+      - "lobular inflammation"
+      - "lobular infiltrate"
+      - "lobular hepatitis"
+      - "interface hepatitis"
+      - "diffuse mixed hepatitis"
+      - "active hepatitis"
+      - "chronic hepatitis"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, scattered, patchy, diffuse]
+    modifiers:
+      inflammation_character: [neutrophilic, mononuclear_lymphocytic, mixed]
+
+  - name: hepatic_inflammation_sinusoidal
+    organs: [liver]
+    description: >-
+      Inflammatory cells within hepatic sinusoids; a sepsis-pattern
+      signal. Same morphology whether the report says "sinusoidal
+      inflammation", "sinusoidal leukocytosis", "sinusoidal
+      lymphocytes/neutrophils", or "intravascular leukocytosis" in a
+      liver block: emit a SINGLE `hepatic_inflammation_sinusoidal`
+      finding (do NOT emit two findings for "sinusoidal and
+      intravascular leukocytosis").
+      Mononuclear character includes `lymphocyte`, `plasma cell`,
+      `lymphoid` phrasings.
+    synonyms:
+      - "sinusoidal leukocytosis"
+      - "sinusoidal inflammation"
+      - "sinusoidal infiltrate"
+      - "intravascular leukocytosis"
+      - "sinusoidal lymphocytes"
+      - "sinusoidal neutrophils"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, scattered, patchy]
+    modifiers:
+      inflammation_character: [neutrophilic, mononuclear_lymphocytic, mixed, eosinophilic]
+
+  - name: lung_intravascular_leukocytosis
+    organs: [right_lung, left_lung]
+    description: >-
+      Inflammatory cells (typically neutrophils) within lung vasculature
+      WITHOUT alveolar / interstitial infiltrate. Sepsis-pattern signal.
+      Distinct from `bronchopneumonia` (intra-alveolar) and `pneumonitis`
+      (interstitial). Often co-fires with `congestion` and / or
+      `bacterial_colonies` (sepsis-pattern triad).
+      Do NOT emit on hepatic blocks (use `hepatic_inflammation_sinusoidal`).
+    synonyms:
+      - "intravascular leukocytosis"
+      - "leukocytosis"
+      - "intravascular neutrophils"
+      - "vascular leukocytosis"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal]
+    modifiers:
+      inflammation_character: [neutrophilic, mononuclear_lymphocytic, mixed]
+
+  # ===========================================================================
+  # ALVEOLAR INJURY
+  # ===========================================================================
+
+  - name: diffuse_alveolar_damage
+    organs: [right_lung, left_lung]
+    description: >-
+      Literal extraction of the term "diffuse alveolar damage" / "DAD"
+      when the pathologist uses it. Emit the label alone for a bare
+      term: the pathologist named the syndrome, not the substrate, so
+      do not expand it to `hyaline_membranes` / `pneumocyte_hyperplasia`
+      at extraction time. When inner morphology IS also stated alongside
+      DAD (e.g. "DAD with hyaline membranes, moderate"), emit BOTH this
+      label AND the literally-named substrate finding(s). Downstream
+      resolution may expand DAD to its CHAMPS-definitional substrates
+      (Martines 2019: HM + type II pneumocyte hyperplasia) at
+      manifest-build time if the training target requires it.
+    synonyms:
+      - "diffuse alveolar damage"
+      - "DAD"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, patchy, diffuse]
+    modifiers: {}
+
+  - name: hyaline_membranes
+    organs: [right_lung, left_lung]
+    description: >-
+      Eosinophilic proteinaceous membranes lining alveoli; characteristic
+      of DAD/RDS. The clinical syndrome names HMD / RDS / IRDS fold here
+      (they literally denote hyaline-membrane disease, a lexical synonym
+      rather than an inference). When the report writes the bare term
+      "DAD" / "diffuse alveolar damage" with no substrate named, emit
+      `diffuse_alveolar_damage` instead; do not expand it here.
+      Note: HM maps `rare` to `mild` (not minimal); HM is a discrete
+      morphology.
+    synonyms:
+      - "hyaline membranes"
+      - "hyaline membrane"
+      - "hyaline membrane formation"
+      - "hyaline membrane deposits"
+      - "hyaline membrane disease"
+      - "HMD"
+      - "IRDS"
+      - "RDS"
+      - "infant respiratory distress syndrome"
+      - "neonatal respiratory distress syndrome"
+      - "findings compatible with IRDS"
+      - "findings compatible with HMD"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, patchy, diffuse, scattered]
+    modifiers: {}
+
+  - name: pneumocyte_hyperplasia
+    organs: [right_lung, left_lung]
+    description: >-
+      Type II pneumocyte hyperplasia / proliferation; reactive.
+      Hyperplastic multinucleated cells route to `viral_inclusions`
+      (syncytia), NOT here, unless explicitly stated as type II.
+    synonyms:
+      - "type II pneumocyte hyperplasia"
+      - "type 2 pneumocyte hyperplasia"
+      - "pneumocyte hyperplasia"
+      - "pneumocyte proliferation"
+      - "type II pneumocytes"
+      - "type II hyperplasia"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, diffuse, scattered]
+    modifiers: {}
+
+  - name: atelectasis
+    organs: [right_lung, left_lung]
+    description: "Collapsed / non-aerated alveolar tissue."
+    synonyms:
+      - atelectasis
+      - atelectatic
+      - "collapsed alveoli"
+      - "collapsed lung"
+      - "collapsed airways"
+      - "collapsed airspaces"
+      - "airway collapse"
+      - "compression atelectasis"
+      - compressed
+      - "partially collapsed"
+    severity_values: []
+    extent_values: [focal, multifocal, diffuse]
+    modifiers: {}
+
+  - name: overinflation
+    organs: [right_lung, left_lung]
+    description: "Hyperinflated / overdistended alveoli."
+    synonyms: [overinflation, hyperinflation, "alveolar overdistension"]
+    severity_values: []
+    extent_values: []
+    modifiers: {}
+
+  - name: increased_alveolar_macrophages
+    organs: [right_lung, left_lung]
+    description: >-
+      Increased intraalveolar macrophages; a reactive non-inflammatory
+      finding. `hemosiderin-laden macrophages` → `lung_hemosiderin`.
+      `pigmented macrophages` / `macrophages with hemozoin pigment` →
+      `hemozoin_pigment`. `macrophages with anthracotic pigment` →
+      this label only (anthracotic pigment is not separately recorded).
+      `macrophages with engulfed squames/meconium` → this label AND
+      `aspiration_*`.
+    synonyms:
+      - "increased alveolar macrophages"
+      - "increased intraalveolar macrophages"
+      - "increased intra-alveolar macrophages"
+      - "prominent alveolar macrophages"
+      - "abundant alveolar macrophages"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, diffuse, scattered, patchy]
+    modifiers: {}
+
+  # ===========================================================================
+  # ASPIRATION
+  # ===========================================================================
+
+  - name: aspiration_squames
+    organs: [right_lung, left_lung]
+    description: >-
+      Aspirated keratinized squamous cells in alveoli; typically
+      maternal / amniotic origin. Co-occurs with `aspiration_meconium`:
+      emit BOTH labels when both materials are stated in the same
+      clause. Use `modifiers.aspiration_inflammation` to record whether
+      the report states "with inflammation" or "without inflammation".
+      Apply per-material severity: when a clause says "moderate squames
+      and rare meconium", emit each finding with its own severity rung.
+      `squamous metaplasia` is NOT aspiration_squames.
+      For wrappers like "minimal nonspecific findings (rare squames)",
+      use the INNER severity word.
+    synonyms:
+      - "aspiration of squames"
+      - "aspirated squames"
+      - "intraalveolar squames"
+      - "squames in alveoli"
+      - squames
+      - "squamous cells"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, scattered, patchy, diffuse]
+    modifiers:
+      aspiration_inflammation: [with_inflammation, without_inflammation]
+
+  - name: aspiration_meconium
+    organs: [right_lung, left_lung]
+    description: >-
+      Aspirated meconium in alveoli: dense brown / green granular
+      material, often forming "meconium balls". Distinct morphology
+      from squames; co-occurs frequently, so emit alongside
+      `aspiration_squames` when both are stated. Use
+      `modifiers.aspiration_inflammation` to record "with inflammation" /
+      "without inflammation". Apply per-material severity.
+      Bilirubin pigment in alveoli (yellow/bile-colored) routes to
+      `aspiration_gi_contents`, NOT here.
+    synonyms:
+      - "aspiration of meconium"
+      - "intraalveolar meconium"
+      - "meconium balls in alveoli"
+      - "meconium aspiration"
+      - "aspirated meconium"
+      - "meconium balls"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, scattered, diffuse]
+    modifiers:
+      aspiration_inflammation: [with_inflammation, without_inflammation]
+
+  - name: aspiration_gi_contents
+    organs: [right_lung, left_lung]
+    description: >-
+      Aspirated gastric / GI contents (often with bile pigment, milk,
+      food material). Less common than squames or meconium. Use
+      `modifiers.aspiration_inflammation`. Bright yellow / bile pigment
+      in alveoli routes here (aspirated bile), NOT to `hemozoin_pigment`.
+    synonyms:
+      - "aspiration of gastric content"
+      - "aspiration of GI contents"
+      - "aspirated bile pigment"
+      - "aspirated gastric material"
+      - "bilirubin-laden contents"
+      - "food particles"
+      - "food material"
+      - "proteinaceous material (milk)"
+      - "foreign material"
+      - bronchoaspiration
+      - "GI content aspiration"
+      - "bile-stained material"
+      - "milk material"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, scattered]
+    modifiers:
+      aspiration_inflammation: [with_inflammation, without_inflammation]
+
+  # ===========================================================================
+  # DEVELOPMENTAL
+  # ===========================================================================
+
+  - name: preterm_lung
+    organs: [right_lung, left_lung]
+    description: >-
+      Preterm lung morphology: saccular / canalicular / alveolar /
+      fetal stages of lung development. Indicates structural immaturity.
+      Use `modifiers.ga_compatibility` to record whether the report
+      reads "compatible with reported gestational age" versus
+      "gestational age not reported". `developmental_stage` is binary
+      `[saccular, other]`: any compound containing "saccular" (e.g.
+      "late saccular/early alveolar", "terminal saccular/alveolar") →
+      `saccular`; pure alveolar / canalicular / fetal-lung-stage →
+      `other`.
+      "fetal lung" is a PRIMARY trigger phrase. Disallow preterm_lung
+      tagging when stage is pure "alveolar" without a preterm/immature
+      header.
+    synonyms:
+      - "preterm lung"
+      - "pre-term lung"
+      - "premature lung"
+      - "immature lung"
+      - "fetal lung"
+    severity_values: []
+    extent_values: []
+    modifiers:
+      ga_compatibility: [compatible_with_reported, not_reported]
+      developmental_stage: [saccular, other]
+
+  # ===========================================================================
+  # CIRCULATORY (per-organ for congestion / hemorrhage / hemosiderin)
+  # ===========================================================================
+
+  - name: liver_congestion
+    organs: [liver]
+    description: >-
+      Vascular congestion in liver: sinusoidal / capillary / generic.
+      Distinct from `sinusoidal_dilation`: "sinusoidal dilation" /
+      "widened sinusoids" / "dilated sinusoids" WITHOUT `congest*` in
+      the same clause → `sinusoidal_dilation`. When both appear, emit
+      BOTH findings. "Hemorrhagic congestion" → emit BOTH
+      `liver_congestion` AND `liver_hemorrhage`. `nutmeg liver` /
+      `passive congestion` / `chronic passive congestion` are synonyms.
+      Do NOT gate on `autolysis` / `inadequate`; pathologists call
+      congestion through both.
+    synonyms:
+      - congestion
+      - "capillary congestion"
+      - "sinusoidal congestion"
+      - "vascular congestion"
+      - "nutmeg liver"
+      - "passive congestion"
+      - "chronic passive congestion"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [diffuse, centrilobular]
+    modifiers: {}
+
+  - name: lung_congestion
+    organs: [right_lung, left_lung]
+    description: >-
+      Vascular congestion in lung. `pulmonary congestion` is a primary
+      synonym. Compound `congestion and edema` → emit both findings
+      with shared severity.
+    synonyms:
+      - congestion
+      - "Lung congestion"
+      - "Dx- Lung congestion"
+      - "capillary congestion"
+      - "vascular congestion"
+      - "pulmonary congestion"
+      - "congestive vessels"
+      - "congested vessels"
+      - "ectatic blood vessels"
+      - "pronounced vascular congestion"
+      - "subpleural congestion"
+      - "interstitial congestion"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, diffuse]
+    modifiers: {}
+
+  - name: cns_congestion
+    organs: [cns_post, cns_trans]
+    description: >-
+      Vascular congestion in CNS. CPL writes `congestive vessels` /
+      `dilated and congestive vessels` frequently.
+    synonyms:
+      - congestion
+      - "vascular congestion"
+      - "congestive vessels"
+      - "congested vessels"
+      - "dilated and congestive vessels"
+      - congested
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: []
+    modifiers: {}
+
+  - name: edema
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: >-
+      Edema / interstitial fluid accumulation. Use
+      `modifiers.edema_location` for lung context where pathologists
+      encode the compartment.
+      "Frothy exudates" / "foamy material" / "frothy material" → emit
+      with `edema_location: alveolar`.
+      Bilirubin pigment in alveoli is NOT edema; route to
+      `aspiration_gi_contents`.
+    synonyms:
+      - edema
+      - "interstitial edema"
+      - "alveolar edema"
+      - "pulmonary edema"
+      - "septal edema"
+      - "perivascular edema"
+      - "cerebral edema"
+      - "frothy exudates"
+      - "foamy material"
+      - "frothy material"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, diffuse]
+    modifiers:
+      edema_location: [alveolar, interstitial, septal, perivascular]
+
+  - name: liver_hemorrhage
+    organs: [liver]
+    description: >-
+      Blood extravasation into liver tissue. Liver hemorrhage is
+      unusual and rarely localized in CPL writing; no
+      `hemorrhage_location` modifier. "Centrizonal hemorrhage" →
+      this label + co-mention. "Hemorrhagic congestion" → emit BOTH
+      this AND `liver_congestion`.
+    synonyms:
+      - hemorrhage
+      - "intraparenchymal hemorrhage"
+      - "interstitial hemorrhage"
+      - "centrizonal hemorrhage"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, patchy, diffuse]
+    modifiers: {}
+
+  - name: lung_hemorrhage
+    organs: [right_lung, left_lung]
+    description: >-
+      Blood extravasation into lung tissue. Use
+      `modifiers.hemorrhage_location` for compartment. `pulmonary
+      hemorrhage` canonically resolves to `intraalveolar`.
+      `parenchymal hemorrhage` → `intraparenchymal`. "Blood clot" +
+      `inadequate` / `no target tissue` in the same finding clause →
+      do NOT emit.
+      Interstitial vs intraparenchymal: prefer `interstitial` when
+      the prose explicitly uses the word; otherwise default to
+      `intraalveolar` for `pulmonary hemorrhage` / `alveolar
+      hemorrhage`.
+    synonyms:
+      - hemorrhage
+      - "intraalveolar hemorrhage"
+      - "intraaveolar hemorrhage"
+      - "intralveolar hemorrhage"
+      - "alveolar hemorrhage"
+      - "interstitial hemorrhage"
+      - "intraparenchymal hemorrhage"
+      - "pulmonary hemorrhage"
+      - "parenchymal hemorrhage"
+      - "extravasated red blood cells"
+      - "extravasated RBCs"
+      - "red blood cell extravasation"
+      - "RBC extravasation"
+      - "extravasation of red blood cells"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, patchy, diffuse, scattered]
+    modifiers:
+      hemorrhage_location: [intraalveolar, intrabronchiolar, intravascular, interstitial, intraparenchymal]
+
+  - name: cns_hemorrhage
+    organs: [cns_post, cns_trans]
+    description: >-
+      Blood extravasation into CNS tissue. Use
+      `modifiers.hemorrhage_location` for compartment. `meningeal`
+      is canonical (CPL writes "meningeal hemorrhage", never
+      "subarachnoid"); `subarachnoid` is a description synonym only.
+      `intracerebral` is a description synonym of `intraparenchymal`
+      (not a separate enum value; it folds to `intraparenchymal`).
+      `ring hemorrhage` (cerebral malaria signature) → emit with
+      `hemorrhage_location: perivascular`.
+      `microhemorrhage` → severity=mild + extent=focal.
+      `IVH` / `possible intraventricular hemorrhage` →
+      `hemorrhage_location: intraventricular`.
+    synonyms:
+      - hemorrhage
+      - "intraparenchymal hemorrhage"
+      - "perivascular hemorrhage"
+      - "meningeal hemorrhage"
+      - "subarachnoid hemorrhage"
+      - "intracerebral hemorrhage"
+      - "ring hemorrhage"
+      - microhemorrhage
+      - "parenchymal hemorrhage"
+      - IVH
+      - "intraventricular hemorrhage"
+      - "subependymal hemorrhage"
+      - "germinal matrix hemorrhage"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, patchy, diffuse, scattered]
+    modifiers:
+      hemorrhage_location:
+        - intraparenchymal
+        - perivascular
+        - meningeal
+        - intraventricular
+        - subependymal
+        - germinal_matrix
+
+  - name: fibrin
+    organs: [liver, right_lung, left_lung]
+    description: >-
+      Intraalveolar / intravascular fibrin deposits. A location is
+      usually stated; use `modifiers.fibrin_location`.
+      `alveolar fibrin` (no `intra-`) is a primary synonym.
+      `fibrin thrombi` / `fibrinous thrombi` route to
+      `thrombosis`, NOT here. `fibrinous pleuritis` / `fibrin in pleural
+      surface` route to `pleuritis`. `intra vascular fibrin` (typo) and
+      `fibrine` normalize to fibrin. `BPN with fibrin` →
+      emit BOTH `bronchopneumonia` AND `fibrin`.
+    synonyms:
+      - fibrin
+      - "intraalveolar fibrin"
+      - "alveolar fibrin"
+      - "fibrin lining alveoli"
+      - "intrabronchiolar fibrin"
+      - "intravascular fibrin"
+      - "intra vascular fibrin"
+      - "fibrin deposition"
+      - "fibrin plugs"
+      - "fibrinous exudate"
+      - "fibrin exudate"
+      - fibrine
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, patchy, diffuse, scattered]
+    modifiers:
+      fibrin_location: [intraalveolar, intrabronchiolar, intravascular, unspecified]
+
+  - name: thrombosis
+    organs: [right_lung, left_lung, cns_post, cns_trans]
+    description: >-
+      Thrombi / thrombosis in vessels. Includes fibrin thrombi,
+      microthrombi, septic thrombi.
+    synonyms:
+      - thrombi
+      - thrombosis
+      - "vascular thrombi"
+      - "fibrin thrombi"
+      - "fibrinous thrombi"
+      - microthrombi
+      - "septic thrombi"
+    severity_values: []
+    extent_values: [focal, scattered]
+    modifiers: {}
+
+  # ===========================================================================
+  # CELL DEATH / INJURY (per-organ for necrosis)
+  # ===========================================================================
+
+  - name: liver_necrosis
+    organs: [liver]
+    description: >-
+      Liver tissue necrosis. Use `modifiers.necrosis_pattern` for the
+      zonal / cellular pattern. `single_cell` is the canonical
+      bottom-severity pattern, with synonyms `rare/single cell`,
+      `single hepatocyte`, `individual hepatocyte` (when paired with
+      `rare/single cell` apply pattern=single_cell + severity=mild).
+      `spotty` collapses `apoptosis`, `acidophil bodies`, `Councilman
+      bodies` into one value.
+      `centrizonal` / `zone 2` aliases to `midzonal`; `zone 3` aliases
+      to `centrilobular`. `infarct(ion)` aliases to `ischemic`.
+      `geographic`, `lytic`, `submassive`, `massive`, `panlobular` →
+      pattern=null + extent=diffuse.
+      `random` / `azonal` (unqualified anatomic descriptor) → pattern=null.
+      Necrotizing BPN → emit `bronchopneumonia` + `lung_necrosis`, not
+      this label.
+    synonyms:
+      - necrosis
+      - "hepatocellular necrosis"
+      - "centrilobular necrosis"
+      - "ischemic necrosis"
+      - infarct
+      - infarction
+      - "coagulative necrosis"
+      - "spotty necrosis"
+      - apoptosis
+      - "acidophil bodies"
+      - "Councilman bodies"
+      - "rare/single cell necrosis"
+      - "single cell necrosis"
+      - "single hepatocyte necrosis"
+      - "individual hepatocyte necrosis"
+      - "bridging necrosis"
+      - "confluent necrosis"
+      - "midzonal necrosis"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, patchy, diffuse, scattered]
+    modifiers:
+      necrosis_pattern:
+        - centrilobular
+        - ischemic
+        - hepatocellular
+        - coagulative
+        - single_cell
+        - spotty
+        - bridging
+        - midzonal
+
+  - name: lung_necrosis
+    organs: [right_lung, left_lung]
+    description: >-
+      Lung tissue necrosis. Use `modifiers.necrosis_pattern` for the
+      lung-specific anatomic pattern: alveolar (parenchymal), bronchiolar
+      (airway-centered), or airway_epithelial.
+      Necrotizing bronchopneumonia → emit BOTH `bronchopneumonia` AND
+      this label.
+      "Necrosis with fibrin and hemorrhage" → emit `lung_necrosis` +
+      `fibrin` + `lung_hemorrhage`.
+    synonyms:
+      - necrosis
+      - "alveolar necrosis"
+      - "bronchiolar necrosis"
+      - "airway epithelial necrosis"
+      - "coagulative necrosis"
+      - "ischemic necrosis"
+      - infarct
+      - infarction
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, patchy, diffuse]
+    modifiers:
+      necrosis_pattern: [alveolar, bronchiolar, airway_epithelial, coagulative, ischemic]
+
+  - name: cns_necrosis
+    organs: [cns_post, cns_trans]
+    description: >-
+      CNS tissue necrosis. Use `modifiers.necrosis_pattern`: `neuronal`
+      for "neuronal necrosis" / "red neurons" / "dead neurons" /
+      "neuronal ischemia" / "early neuronal ischemia"; `parenchymal`
+      for "regional parenchymal necrosis" / "cortical necrosis";
+      `ischemic` for "infarct" / "ischemic necrosis"; `hypoxic` for
+      "hypoxic" / "hypoxic-ischemic injury".
+    synonyms:
+      - necrosis
+      - "neuronal necrosis"
+      - "parenchymal necrosis"
+      - "red neurons"
+      - "neuronal ischemia"
+      - "early neuronal ischemia"
+      - "ischemic necrosis"
+      - infarct
+      - infarction
+      - "cortical necrosis"
+      - "hypoxic-ischemic injury"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, patchy, diffuse]
+    modifiers:
+      necrosis_pattern: [neuronal, parenchymal, hypoxic, ischemic]
+
+  - name: gliosis
+    organs: [cns_post, cns_trans]
+    description: >-
+      Reactive gliosis / astrocyte proliferation. Use
+      `modifiers.gliosis_pattern`: `microglial_nodule` is the
+      CMV-encephalitis signature. Microglial nodules + parenchymal
+      inflammation → emit BOTH this finding AND `encephalitis`.
+      Reactive-astrocyte phrasings ("reactive astrocytes", "regional
+      gliosis") map to default (no pattern).
+      "Durck's granuloma" → this label (gliosis_pattern: microglial_nodule),
+      NOT intraerythrocytic_parasites.
+    synonyms:
+      - gliosis
+      - "reactive gliosis"
+      - astrogliosis
+      - "reactive astrocytes"
+      - "microglial nodules"
+      - "glial nodules"
+      - "Durck's granuloma"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, perivascular, regional, diffuse]
+    modifiers:
+      gliosis_pattern: [diffuse, multifocal, focal, microglial_nodule, glial_nodule]
+
+  - name: hepatocellular_swelling
+    organs: [liver]
+    description: >-
+      Hepatocyte swelling / vacuolation / ballooning. Use
+      `modifiers.swelling_subtype` to record cause: `glycogen`
+      (glycogenation / glycogenated / glycogenosis), `vacuolar`,
+      `ballooning` (ballooning degeneration), `hydropic` (hydropic
+      ballooning), or `unspecified`.
+    synonyms:
+      - "hepatocellular swelling"
+      - "hepatocyte swelling"
+      - "hepatocellular vacuolation"
+      - "ballooning hepatocytes"
+      - "hepatocyte vacuolation"
+      - "ballooning degeneration"
+      - "hydropic ballooning"
+      - glycogenation
+      - glycogenated
+      - glycogenosis
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, diffuse, lobular, patchy]
+    modifiers:
+      swelling_subtype: [glycogen, vacuolar, ballooning, hydropic, unspecified]
+
+  - name: fibrosis
+    organs: [liver, right_lung, left_lung]
+    description: >-
+      Fibrosis / collagen deposition. Trichrome-positive on stain.
+      `extent_values` carries the zonal pattern (periportal /
+      centrilobular / pericellular / bridging / central_stellate for
+      liver; peribronchiolar / lobular for lung).
+    synonyms:
+      - fibrosis
+      - "portal fibrosis"
+      - "pericellular matrix deposition"
+      - "trichrome positive"
+      - "collagen deposition"
+      - "bridging fibrosis"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, periportal, centrilobular, lobular, pericellular, peribronchiolar, bridging, central_stellate]
+    modifiers: {}
+
+  # ===========================================================================
+  # HEPATOCELLULAR / METABOLIC
+  # ===========================================================================
+
+  - name: steatosis
+    organs: [liver]
+    description: >-
+      Hepatic steatosis. Use `modifiers.droplet` to record droplet
+      pattern: `small_droplet` (synonyms: microvesicular), `large_droplet`
+      (synonyms: macrovesicular), or `mixed_droplet` when both are
+      stated. `mixed_droplet` is never written verbatim in source;
+      emit it when the report states both small AND large droplets in
+      the same clause, regardless of order or bracketing.
+      Never emit `microvesicular` / `macrovesicular` as droplet values
+      (map to small / large / mixed).
+      Treat `panacinar` / `panlobular` / "diffuse pattern" as extent
+      aliases of `diffuse`; `centrizonal` / `zone 3` → `centrilobular`;
+      `zone 1` → `periportal`.
+      "Predominantly X droplet" → that droplet alone, NOT mixed.
+    synonyms:
+      - steatosis
+      - "fatty degeneration"
+      - "macrovesicular steatosis"
+      - "microvesicular steatosis"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, diffuse, periportal, centrilobular, azonal]
+    modifiers:
+      droplet: [small_droplet, large_droplet, mixed_droplet]
+
+  - name: extramedullary_hematopoiesis
+    organs: [liver, right_lung, left_lung]
+    description: >-
+      Extramedullary hematopoiesis (EMH); typically liver, sometimes
+      lung. Bare `EMH;` with no severity is a canonical emission
+      pattern: accept null-severity as a valid label state.
+      `myelopoiesis` is a synonym.
+      Range-severity rule: `moderate to extensive` → severe (pick higher).
+    synonyms:
+      - "extramedullary hematopoiesis"
+      - "extramedullary hemopoiesis"
+      - EMH
+      - myelopoiesis
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: []
+    modifiers: {}
+
+  - name: cholestasis
+    organs: [liver]
+    description: >-
+      Bile stasis: canalicular bile plugs, intracellular bile pigment.
+      Use `modifiers.cholestasis_location`: `canalicular` for
+      "intracanalicular" / "canalicular bile" / "bile plugs";
+      `hepatocellular` for "intracellular bile" / "intracytoplasmic
+      bile" / "bile pigment in hepatocytes"; `ductular` for ductular
+      cholestasis; `mixed` for "hepatocanalicular" or when multiple
+      compartments stated.
+      Use `cholestatic_rosettes_present: true` when the report mentions
+      "cholestatic rosettes" / "pseudorosettes" (a chronic-cholestasis
+      sign). When prose says "Mild cholestasis" / "Cholestasis, mild",
+      extract the severity (do not bare-emit). Liver "intra-hepatocyte
+      brown pigment" routes here, NOT hemozoin.
+    synonyms:
+      - cholestasis
+      - "bile stasis"
+      - "bile plugs"
+      - "bile pigment"
+      - "intracanalicular bile"
+      - "intracellular bile"
+      - "intracytoplasmic bile"
+      - "bile pigment in hepatocytes"
+      - hepatocanalicular
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, diffuse]
+    modifiers:
+      cholestasis_location: [canalicular, hepatocellular, ductular, mixed]
+      cholestatic_rosettes_present: [true, false]
+
+  - name: giant_cell_transformation
+    organs: [liver]
+    description: >-
+      Giant-cell transformation: multinucleated hepatocytes. Distinct
+      from granuloma giant cells (which fire under `granulomas`).
+    synonyms:
+      - "giant cell transformation"
+      - "giant cell hepatitis"
+      - "multinucleated hepatocytes"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, diffuse]
+    modifiers: {}
+
+  - name: ductular_proliferation
+    organs: [liver]
+    description: "Bile ductular reaction / proliferation."
+    synonyms:
+      - "ductular reaction"
+      - "ductular proliferation"
+      - "bile duct proliferation"
+      - "bile ductular hyperplasia"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, periportal]
+    modifiers: {}
+
+  - name: sinusoidal_dilation
+    organs: [liver]
+    description: >-
+      Sinusoidal dilation; distinct from `liver_congestion` per
+      pathologist usage. Emit when the report explicitly says
+      "sinusoidal dilation", "sinusoidal dilatation", "widened
+      sinusoids", "dilated sinusoids", or "marked sinusoidal dilation"
+      WITHOUT using `congest*` in the same clause. When both
+      `dilation` and `congestion` appear in the same clause, emit BOTH
+      findings. `centrilobular dilatation` → this label with
+      extent=centrilobular.
+    synonyms:
+      - "sinusoidal dilation"
+      - "sinusoidal dilatation"
+      - "widened sinusoids"
+      - "dilated sinusoids"
+      - "prominent sinusoidal dilation"
+      - "pronounced sinusoidal dilation"
+      - "striking sinusoidal dilation"
+      - "centrilobular dilatation"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, diffuse, centrilobular]
+    modifiers: {}
+
+  - name: paucity_of_bile_ducts
+    organs: [liver]
+    description: >-
+      Paucity of intrahepatic bile ducts / ductal plate malformation /
+      biliary atresia signal. Rare but distinct congenital biliary
+      morphology (Alagille syndrome, biliary atresia). Emit on
+      explicit phrasing including "paucity of bile ducts", "few portal
+      tracts are devoid of bile ducts", "ductal plate malformation",
+      "biliary atresia" (when used as a positive finding). Rule-outs
+      like "no biliary atresia or cholestasis seen" route to
+      `negations[]` with negation_group=`no_biliary_atresia`.
+    synonyms:
+      - "paucity of bile ducts"
+      - "paucity of intrahepatic bile ducts"
+      - "ductal plate malformation"
+      - "biliary atresia"
+      - "portal tracts devoid of bile ducts"
+    severity_values: []
+    extent_values: []
+    modifiers: {}
+
+  # ===========================================================================
+  # PIGMENTS (literal-extraction; per-organ for hemosiderin)
+  # ===========================================================================
+  #
+  # PIGMENT POLICY: extraction is faithful to what the pathologist NAMED.
+  # Composition is recorded only when stated, never inferred from organ
+  # context.
+  #
+  #   - Explicit "hemozoin" / "malarial pigment" / "malaria pigment",
+  #     OR stated polarizable / birefringent → `hemozoin_pigment`.
+  #   - Explicit "hemosiderin" / "hemosiderosis" / "iron stain positive"
+  #     / "iron-laden" / "siderophage" / "Perls" / "Prussian blue" →
+  #     per-organ `*_hemosiderin`.
+  #   - Bare colour/location-only pigment with no composition named
+  #     and no polarizable/iron/malaria cue ("brown pigment",
+  #     "golden-brown pigment", "pigmented Kupffer cells",
+  #     "sinusoidal pigment", "cytoplasmic pigment") →
+  #     `pigment_unspecified` (cross-organ; downstream resolves).
+  #   - Artifact: "formalin pigment" / "artifact pigment" /
+  #     "anthracotic pigment" / "anthracosis" / "carbon pigment" → DROP.
+  #   - Bright-yellow / bile pigment in alveoli → `aspiration_gi_contents`.
+  #
+  # Downstream resolution (TAC Plasmodium status, IHC, iron-stain result,
+  # optional organ prior) assigns the composition class for
+  # `pigment_unspecified` at manifest-build time, where any organ prior
+  # is applied as a downstream rule with evidence behind it rather than
+  # as an extraction default.
+
+  - name: pigment_unspecified
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: >-
+      Pigment described by colour and/or location only, with NO
+      compositional identity named and NO polarizable / iron / malaria
+      cue in the supporting text. Includes bare "brown pigment",
+      "golden-brown pigment", "brown granular pigment", "pigmented
+      macrophages / Kupffer cells / histiocytes", "sinusoidal pigment",
+      "cytoplasmic pigment", "intravascular pigment".
+      EXTRACTION-ONLY label: do not guess hemozoin vs hemosiderin from
+      organ context. Downstream resolution (TAC, IHC, iron stain)
+      assigns the compositional class at manifest-build time.
+      Exclusions still apply:
+        * "formalin" / "artifact" / "anthracotic" / "carbon" pigment → DROP.
+        * Bright-yellow / bile pigment in alveoli → `aspiration_gi_contents`.
+      If the report uses "hemozoin" / "malarial pigment" / polarizable
+      / birefringent → emit `hemozoin_pigment` instead.
+      If the report uses "hemosiderin" / "iron stain" / "siderophage" /
+      Perls / Prussian blue → emit the per-organ `*_hemosiderin` instead.
+    synonyms:
+      - "brown pigment"
+      - "golden brown pigment"
+      - "golden-brown pigment"
+      - "brown granular pigment"
+      - "granular pigment"
+      - "pigmented macrophages"
+      - "pigmented Kupffer cells"
+      - "Kupffer cell pigment"
+      - "sinusoidal pigment"
+      - "cytoplasmic pigment"
+      - "intravascular pigment"
+      - "pigmented histiocytes"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, scattered, diffuse, periportal, sinusoidal]
+    modifiers: {}
+
+  - name: hemozoin_pigment
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: >-
+      Malarial pigment. Emit ONLY when the report explicitly names it
+      ("hemozoin", "hemozoin pigment", "malarial pigment", "malaria
+      pigment") OR explicitly states the pigment is polarizable /
+      birefringent. Route bare "brown pigment" / "golden-brown pigment"
+      / "pigmented Kupffer cells" to `pigment_unspecified` regardless of
+      organ context (CNS, lung, or otherwise); do not default them here.
+      Downstream resolution may reclassify `pigment_unspecified` as
+      hemozoin using TAC / IHC.
+      Use `modifiers.pigment_location` to record sequestration biology
+      when stated (intraerythrocytic = active malaria; extraerythrocytic
+      = past disease, Kupffer-cell pigment). Use `modifiers.polarizable`
+      for explicit polarizability statements.
+      NEVER emit on "formalin pigment" / "artifact pigment" /
+      "anthracotic pigment" / "anthracosis" / "carbon pigment".
+      Bright-yellow / bile pigment in alveoli → `aspiration_gi_contents`,
+      NOT this label.
+    synonyms:
+      - hemozoin
+      - "hemozoin pigment"
+      - "malarial pigment"
+      - "malaria pigment"
+      - "polarizable pigment"
+      - "birefringent pigment"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, scattered, diffuse, periportal, sinusoidal]
+    modifiers:
+      pigment_location: [intraerythrocytic, extraerythrocytic, intravascular, perivascular, kupffer, mixed]
+      polarizable: [yes, no, not_stated]
+
+  - name: liver_hemosiderin
+    organs: [liver]
+    description: >-
+      Hemosiderin pigment in liver. Emit ONLY when the report
+      explicitly names it: "hemosiderin", "hemosiderosis", "iron stain
+      positive", "iron-laden macrophages", "siderophage", "Perls
+      positive", "Prussian blue positive". Bare "brown pigment" /
+      "golden-brown pigment" / "brown granular pigment" with no iron
+      cue in the supporting text routes to `pigment_unspecified`
+      instead; any hemosiderin prior is applied downstream, with
+      evidence, rather than at extraction.
+      `hemosiderosis` is a primary synonym (the Latin form is
+      occasionally used without an explicit "iron" word).
+      Use `modifiers.hemosiderin_location` for Kupffer / hepatocyte /
+      sinusoidal / periportal; multi-compartment cases emit `mixed`.
+      Use `iron_stain_used: true` when the report explicitly invokes
+      an iron stain ("iron stain positive", "by iron stain").
+      Hemozoin + hemosiderin co-fire is correct when explicitly
+      attributed to different compartments.
+    synonyms:
+      - hemosiderin
+      - hemosiderosis
+      - "hemosiderin pigment"
+      - "iron stain positive"
+      - "iron-laden macrophages"
+      - siderophage
+      - "intra-Kupffer hemosiderin"
+      - "intra-hepatocyte hemosiderin"
+      - "Perls positive"
+      - "Prussian blue positive"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, scattered, periportal, sinusoidal, diffuse]
+    modifiers:
+      hemosiderin_location: [kupffer_cell, hepatocyte, periportal, sinusoidal, mixed]
+      iron_stain_used: [true, false]
+
+  - name: lung_hemosiderin
+    organs: [right_lung, left_lung]
+    description: >-
+      Hemosiderin pigment in lung. Emit on explicit "hemosiderin",
+      "hemosiderin-laden macrophages", "iron stain positive", or
+      hemosiderophages. `hemosiderin-laden macrophages` is the most
+      common form.
+    synonyms:
+      - hemosiderin
+      - "hemosiderin pigment"
+      - "hemosiderin-laden macrophages"
+      - hemosiderophages
+      - "iron stain positive"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, scattered, intraalveolar]
+    modifiers: {}
+
+  - name: cns_hemosiderin
+    organs: [cns_post, cns_trans]
+    description: >-
+      Hemosiderin pigment in CNS; rare. Emit on explicit "hemosiderin"
+      or "iron stain positive". `hemosiderophages` mark old hemorrhage.
+    synonyms:
+      - hemosiderin
+      - "hemosiderin pigment"
+      - hemosiderophages
+      - "iron stain positive"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, scattered]
+    modifiers: {}
+
+  # ===========================================================================
+  # INFECTIONS
+  # ===========================================================================
+
+  - name: viral_inclusions
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: >-
+      Intranuclear / intracytoplasmic viral inclusions. Includes
+      cytomegalic cells, smudge cells, syncytial cells, karyocytomegaly,
+      Cowdry type A inclusions. Use `modifiers.viral_type` when the
+      report names a specific virus: `cmv` for CMV / cytomegalic;
+      `herpes` for HSV / herpes / Cowdry type A; `other` for adeno /
+      RSV / other.
+      "Hyperplastic multinucleated cells" routes here (syncytia), not
+      `pneumocyte_hyperplasia`.
+    synonyms:
+      - "viral inclusions"
+      - "viral cytopathic changes"
+      - "CMV inclusion"
+      - "cytomegalic cells"
+      - "intranuclear inclusions"
+      - "smudge cells"
+      - "syncytial cells"
+      - "viral syncytia"
+      - karyocytomegaly
+      - "owl-eye morphology"
+      - "karyocytomegalic cells"
+      - "viropathic inclusions"
+      - "Cowdry type A inclusions"
+      - "HHV5"
+      - "human herpesvirus 5"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, scattered]
+    modifiers:
+      viral_type: [cmv, herpes, other]
+
+  - name: pneumocystis
+    organs: [right_lung, left_lung]
+    description: "Pneumocystis jirovecii pneumonia (PCP / PJP)."
+    synonyms: [Pneumocystis, PCP, PJP, "pneumocystis jirovecii", "pneumocystis pneumonia"]
+    severity_values: []
+    extent_values: []
+    modifiers: {}
+
+  - name: bacterial_colonies
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: >-
+      Bacterial colonies in tissue. Often intraalveolar in lung;
+      postmortem overgrowth is common (drop per Principle 5). Distinct
+      from `bronchopneumonia` (which requires neutrophils); both can
+      co-fire when neutrophils are also present. Use
+      `modifiers.bacterial_morphology` for shape: cocci, diplococci,
+      rods, coccobacilli, filamentous, or mixed (when multiple shapes
+      stated in one clause).
+      Use `modifiers.gram_stain` for stain result: positive, negative,
+      variable, not_stated.
+      Use `modifiers.bacterial_location` for LIVER context anatomic
+      compartment: sinusoidal, intravascular, serosal, periportal.
+      For lung, location is implicit in `extent` (intraalveolar).
+    synonyms:
+      - "bacterial colonies"
+      - "bacterial intraalveolar"
+      - diplococci
+      - "intravascular bacteria"
+      - "sinusoidal bacteria"
+      - cocci
+      - "bacterial rods"
+      - coccobacilli
+      - "bacilliform bacteria"
+      - filamentous
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, intraalveolar, scattered, diffuse]
+    modifiers:
+      bacterial_morphology: [cocci, diplococci, rods, coccobacilli, filamentous, mixed]
+      gram_stain: [positive, negative, variable, not_stated]
+      bacterial_location: [sinusoidal, intravascular, serosal, periportal]
+
+  - name: fungal
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: >-
+      Fungal organisms / hyphae / pseudohyphae / yeast forms. Use
+      `modifiers.fungal_morphology` for `yeast`, `hyphae`,
+      `pseudohyphae`, or `mixed` (when both stated in one clause).
+      Add liver context for `intrasinusoidal yeast`.
+    synonyms:
+      - fungal
+      - hyphae
+      - pseudohyphae
+      - "fungal organisms"
+      - "yeast forms"
+      - yeasts
+      - "yeast-like forms"
+      - "budding yeast"
+      - "hyphal organisms"
+      - "septate hyphae"
+      - "branching hyphae"
+      - fungi
+      - Candida
+      - "GMS-positive"
+      - "intrasinusoidal yeast"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, intraalveolar, interstitial]
+    modifiers:
+      fungal_morphology: [yeast, hyphae, pseudohyphae, mixed]
+
+  - name: intraerythrocytic_parasites
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: >-
+      Malarial parasites within red blood cells. In CNS, sequestered
+      red cells in cerebral capillaries are the morphological hallmark
+      of cerebral malaria (record the morphology here; do NOT emit a
+      separate `cerebral_malaria` clinical-syndrome label). Use
+      `modifiers.parasite_form` when the report names a stage:
+      `ring_form`, `trophozoite`, `schizont`, `gametocyte`,
+      `sequestered_only` (only sequestration mentioned, no stage), or
+      `unspecified`.
+      "Durck's granuloma" → `gliosis` with gliosis_pattern=microglial_nodule,
+      NOT this label.
+      Hedged language ("suspected parasites", "suggestive of malaria",
+      "suspicious for parasites") → emit positive when accompanied by
+      amount/extent/character; emit negated when standalone uncertain.
+    synonyms:
+      - "intraerythrocytic parasites"
+      - "intra-red-cell parasites"
+      - "parasites in erythrocytes"
+      - "intraerythrocytic malarial parasites"
+      - "parasitized red blood cells"
+      - "parasitized erythrocytes"
+      - "parasitized RBCs"
+      - "sequestered erythrocytes"
+      - "intraerythrocytic protozoa"
+      - "intraerythrocytic organisms"
+      - "intraerythrocytic microorganisms"
+      - "intravascular parasites"
+      - "intravascular malaria parasites"
+      - "parasites within red blood cells"
+      - "parasites within erythrocytes"
+      - trophozoites
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [scattered, multifocal, diffuse]
+    modifiers:
+      parasite_form: [ring_form, trophozoite, schizont, gametocyte, sequestered_only, unspecified]
+
+  - name: granulomas
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: >-
+      Granulomas: epithelioid macrophage aggregates. Use
+      `modifiers.granuloma_type` to mark necrotizing vs non-necrotizing.
+      Necrotizing / caseating granulomas suggest TB / mycobacterial
+      disease; non-necrotizing are more often parasitic or idiopathic.
+      `granulomatous meningitis` routes here (organ=cns_post/cns_trans),
+      NOT to `meningitis` with a new character.
+      Schistosoma egg granulomas → this label.
+    synonyms:
+      - granuloma
+      - granulomas
+      - "granulomatous inflammation"
+      - "necrotizing granulomas"
+      - "caseating granulomas"
+      - "non-necrotizing granulomas"
+      - "epithelioid granulomas"
+      - Schistosoma
+      - "parasite egg"
+      - caseating
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, lobular]
+    modifiers:
+      granuloma_type: [necrotizing, non_necrotizing]
+
+  # ===========================================================================
+  # OTHER
+  # ===========================================================================
+
+  - name: calcification
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: >-
+      Tissue calcification: dystrophic / micro / macrocalcification.
+      Use `modifiers.calcification_morphology` to record granularity:
+      `microcalcification` (the dominant CNS form),
+      `macrocalcification`, `coarse`, `punctate`, or `dystrophic`.
+    synonyms:
+      - calcification
+      - "dystrophic calcification"
+      - microcalcification
+      - calcified
+      - mineralization
+      - "mineralized foci"
+      - "mineralized neurons"
+      - macrocalcification
+      - "punctate calcifications"
+      - "coarse calcifications"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, scattered, perivascular, intraparenchymal]
+    modifiers:
+      calcification_morphology: [microcalcification, macrocalcification, coarse, punctate, dystrophic]
+
+  - name: atypical_cells_tumor
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: "Atypical cells / tumor cells / neoplastic rosettes."
+    synonyms:
+      - "atypical cells"
+      - "tumor cells"
+      - rosettes
+      - "sheets of atypical cells"
+      - neoplastic
+    severity_values: []
+    extent_values: []
+    modifiers: {}
+
+# ---------------------------------------------------------------------------
+# Negation flags: explicit absence statements
+# ---------------------------------------------------------------------------
+
+negation_flags:
+
+  - name: unremarkable
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: "Organ explicitly read as unremarkable / no significant findings."
+    synonyms:
+      - unremarkable
+      - "no significant findings"
+      - "essentially unremarkable"
+      - "no significant histopathologic changes"
+
+  - name: no_inflammation
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: "Inflammation explicitly absent."
+    synonyms:
+      - "no inflammation"
+      - "no significant inflammation"
+      - "without inflammation"
+      - "no evidence of inflammation"
+
+  - name: no_viral_inclusions
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: "Viral inclusions / cytopathic effect explicitly absent."
+    synonyms:
+      - "no viral inclusions"
+      - "no viral cytopathic changes"
+      - "no CMV inclusions seen"
+
+  - name: no_parasites
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: "Parasites / malarial parasites explicitly absent."
+    synonyms: ["no parasites seen", "no intraerythrocytic parasites"]
+
+  - name: no_granulomas
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: "Granulomas explicitly absent."
+    synonyms: ["no granulomas"]
+
+  - name: no_emh
+    organs: [liver]
+    description: "Extramedullary hematopoiesis explicitly absent (liver-specific)."
+    synonyms: ["no extramedullary hematopoiesis", "no EMH"]
+
+  - name: no_biliary_atresia
+    organs: [liver]
+    description: >-
+      Biliary atresia / paucity of bile ducts / ductal plate malformation
+      explicitly ruled out. Common rule-out phrasing in neonatal
+      cholestasis workup.
+    synonyms:
+      - "no biliary atresia"
+      - "no biliary atresia or cholestasis seen"
+      - "no paucity of bile ducts"
+
+  - name: minimal_nonspecific
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: "Reader called the findings minimal and non-specific."
+    synonyms:
+      - "minimal non-specific findings"
+      - "minimal nonspecific findings"
+
+# ---------------------------------------------------------------------------
+# Quality flags: technical / artifactual issues affecting interpretability
+# ---------------------------------------------------------------------------
+
+quality_flags:
+
+  - name: autolysis
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: "Postmortem autolysis (loss of nuclear basophilia, tissue softening)."
+    synonyms:
+      - autolysis
+      - autolyzed
+      - "loss of nuclear basophilia"
+      - "diffuse softening"
+      - "partial autolysis"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: [focal, multifocal, diffuse]
+    modifiers: {}
+
+  - name: maceration
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: "Tissue maceration (typically IUFD)."
+    synonyms:
+      - maceration
+      - macerated
+      - "level 1 maceration"
+      - "level 2 maceration"
+    severity_values: [minimal, mild, moderate, severe, extensive]
+    extent_values: []
+    modifiers: {}
+
+  - name: crush_artifact
+    organs: [right_lung, left_lung, cns_post, cns_trans]
+    description: "Crush artifact obscuring tissue interpretation."
+    synonyms: ["crush artifact", crushed, molding]
+    severity_values: []
+    extent_values: []
+    modifiers: {}
+
+  - name: inadequate_for_dx
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: "Sample is technically inadequate / insufficient tissue / target tissue absent."
+    synonyms:
+      - "technically inadequate"
+      - inadequate
+      - "no target tissue"
+      - "insufficient tissue"
+      - "diagnostically irrelevant"
+      - "no fragments of tissue"
+      - "very small fragment"
+    severity_values: []
+    extent_values: []
+    modifiers: {}
+
+  - name: not_performed
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: "Section explicitly marked as 'Not performed' / 'Not done' / 'No slides examined'."
+    synonyms:
+      - "not performed"
+      - "not done"
+      - "no slides examined"
+      - "CPL slides not examined"
+    severity_values: []
+    extent_values: []
+    modifiers: {}
+
+  # CPL-specific scan-quality markers (cpl_review_of_scans only)
+  - name: out_of_focus
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: >-
+      Scan is out of focus / blurry / unfocused, so interpretation is
+      unreliable. Specific to `cpl_review_of_scans` (the reader is
+      reviewing a digital scan, not a physical slide).
+    synonyms:
+      - "out of focus"
+      - "blurry slide"
+      - blurry
+      - "moderately blurry"
+      - "unfocused slide"
+      - unfocused
+    severity_values: []
+    extent_values: []
+    modifiers: {}
+
+  - name: no_scans_available
+    organs: [liver, right_lung, left_lung, cns_post, cns_trans]
+    description: >-
+      No scan slides available to be reviewed for this organ. Specific
+      to `cpl_review_of_scans`.
+    synonyms:
+      - "no scan slides available"
+      - "no slides available to be reviewed"
+      - "scan not available"
+    severity_values: []
+    extent_values: []
+    modifiers: {}
+
+  - name: no_meninges_present
+    organs: [cns_post, cns_trans]
+    description: >-
+      Meninges absent in the sample, so meningitis cannot be assessed.
+      Common CNS-specific quality marker. If this fires, do NOT also
+      emit a `meningitis` finding from the same clause.
+    synonyms:
+      - "no meninges present"
+      - "meninges absent"
+      - "meninges not present"
+      - "meninges not sampled"
+      - "no meningeal tissue"
+      - "no meninges"
+    severity_values: []
+    extent_values: []
+    modifiers: {}
+
+  - name: meninges_present
+    organs: [cns_post, cns_trans]
+    description: >-
+      Meninges ARE present in the sample; the positive complement of
+      `no_meninges_present`. Distinguishes "meningitis-eligible
+      examined" (clean negative) from "meningitis-eligible never seen"
+      (uninterpretable). Almost always the literal phrase "Meninges
+      present" appearing as the first line of the CNS section, before
+      any morphology call. Also emit on implicit-positive phrasings
+      ("Technically adequate with unremarkable meninges").
+    synonyms:
+      - "meninges present"
+      - "meninges seen"
+      - "meningeal tissue present"
+      - "unremarkable meninges"
+    severity_values: []
+    extent_values: []
+    modifiers: {}
+
+  - name: nasal_contents_present
+    organs: [cns_trans]
+    description: >-
+      Nasal contents present in a CNS-transnasal sample; a sampling
+      contamination flag. Distinguishes nasal-cavity inflammation /
+      bacteria / yeasts from intraparenchymal CNS infection. Emit on
+      the literal phrase "Nasal contents present" / "Nasal content
+      present" AND on descriptive phrases like "nasal content composed
+      by squames, fibrin and bacteria" / "nasal content with abundant
+      fibrin, neutrophils, squames, nasal epithelial cells".
+    synonyms:
+      - "nasal contents present"
+      - "nasal content present"
+      - "nasal content with"
+      - "nasal content composed"

@@ -97,12 +97,20 @@ non-commercial academic research.
 
 ## Report extraction
 
-Reports were processed with vLLM `0.27.2rc1.dev122+g8efa13b70` from the
-`vllm/vllm-openai` container, serving the Gemma weights above with fp8 KV
-cache, a context of 32,768 tokens, and temperature 0. Quantised inference
-is not bit-reproducible across hardware or engine builds; the extracted
-records are therefore provided as data, and re-running the extraction is
-expected to reproduce them statistically, not exactly.
+Reports were processed with vLLM from the `vllm/vllm-openai` container,
+serving the Gemma weights above with an fp8 KV cache, a context of 40,960
+tokens, an output cap of 8,192 tokens, temperature 0, and the reply
+constrained to the JSON schema derived from the extraction schema. No
+released tag of that container serves this model, so the run used the
+`nightly` image of 2026-09-12 (vLLM build `0.1.1.dev50+geed1f3d0c`),
+snapshot to a local file whose checksum the run record carries; the image
+itself cannot be redistributed. Quantised inference is not bit-reproducible
+across hardware or engine builds; the extracted records are therefore
+provided as data, and re-running the extraction reproduces them
+statistically, not exactly. The run record (`run_meta.json`) stores the
+engine build, the context length, the output cap, the decoding constraint,
+and a fingerprint of the rendered prompt; a repeat of one shard under the
+same settings measures the agreement.
 
 ## Data
 
