@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "champs-pipeline"
+version = "1.0.0"
+description = "Whole-slide feature extraction, report-label extraction, and multiple-instance learning for the CHAMPS MITS histopathology study"
+requires-python = "==3.10.*"
+# Versions are pinned in env/requirements.lock; this list names the direct
+# imports only. Trident and the DINOv2 fork are installed from their
+# repositories by `make env` (see env/EXTERNALS.md).
+dependencies = [
+    "numpy",
+    "pandas",
+    "h5py",
+    "openslide-python",
+    "scikit-learn",
+    "torch",
+    "torchvision",
+    "timm",
+    "pillow",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

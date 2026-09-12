@@ -1,7 +1,7 @@
 """Verify the analysis environment.
 
 Checks the interpreter and core package versions against the pinned values,
-that Trident imports at the pinned version, that ``pip check`` reports only
+that Trident and the DINOv2 fork import, that ``pip check`` reports only
 the declared inconsistencies listed in EXTERNALS.md, and, when ``DATA_ROOT``
 is set, that the primary data files match ``checksums.sha256``.
 
@@ -37,6 +37,7 @@ EXPECTED_PIP_CHECK = (
     "trident 0.2.3 requires opencv-python",
     "trident 0.2.3 has requirement timm==0.9.16",
     "trident 0.2.3 requires einops-exts",
+    "dinov2 0.0.1 ",
 )
 
 
@@ -66,11 +67,12 @@ def main() -> int:
         else:
             fail(f"{dist} {have} (pinned {want})", failures)
 
-    try:
-        import trident  # noqa: F401
-        ok("trident imports")
-    except Exception as e:  # pragma: no cover
-        fail(f"trident import: {e}", failures)
+    for name in ("trident", "dinov2"):
+        try:
+            __import__(name)
+            ok(f"{name} imports")
+        except Exception as e:  # pragma: no cover
+            fail(f"{name} import: {e}", failures)
 
     proc = subprocess.run(
         [sys.executable, "-m", "pip", "check"], capture_output=True, text=True

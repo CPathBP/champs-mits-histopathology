@@ -1,0 +1,12 @@
+# Packages the self-supervised training of the in-domain encoder needs beyond
+# requirements.lock (DINOv2's training harness). Install with --no-deps.
+--extra-index-url https://download.pytorch.org/whl/cu128
+cloudpickle==3.1.2
+fvcore==0.1.5.post20221221
+iopath==0.1.10
+portalocker==3.2.0
+submitit==1.5.4
+tabulate==0.10.0
+termcolor==3.2.0
+xformers==0.0.35
+yacs==0.1.8

@@ -11,12 +11,16 @@ given relative to the data directory (`DATA_ROOT`) and the model cache
 `environment.yml` provides Python 3.10.19 and the native libraries
 (OpenSlide 3.4.1, libtiff 4.5.1, OpenJPEG 2.5.0). `requirements.lock` pins
 every Python package at the version used; it is installed without
-dependency resolution, and `pip check` reports one declared inconsistency,
-`opencv-python-headless` 4.13.0.92 declaring `numpy>=2` alongside
-numpy 1.26.4. This combination was used for all runs and is functional,
-because extensions built against the NumPy 2 headers run under NumPy 1.x.
+dependency resolution. `pip check` then reports the declared requirements
+that are deliberately not met: `opencv-python-headless` 4.13.0.92 declares
+`numpy>=2` alongside numpy 1.26.4 (functional, because extensions built
+against the NumPy 2 headers run under NumPy 1.x), and Trident and the
+DINOv2 fork declare the dependency sets of their own upstream releases,
+which the lock supersedes. `make env-check` accepts exactly these lines.
 `requirements-gpu-build.txt` holds `mamba-ssm`, which compiles CUDA
-extensions at install time and is needed for the MamMIL aggregator only.
+extensions at install time and is needed for the MamMIL aggregator only
+(`make env-gpu`). `requirements-ssl.txt` holds the packages DINOv2's training
+harness needs for the in-domain encoder (`make env-ssl`).
 
 Core versions: torch 2.10.0 (CUDA 12.8), PyTorch Lightning 2.5.6,
 timm 1.0.27, pylance 4.0.1, statsmodels 0.15.0.
@@ -25,20 +29,22 @@ timm 1.0.27, pylance 4.0.1, statsmodels 0.15.0.
 
 Feature extraction uses Trident v0.2.3 (commit `adf3b7e8`,
 CC BY-NC-ND 4.0), installed unmodified from the upstream repository at that
-tag. Two
-adaptations are applied at runtime by this package rather than by changing
-Trident's source, which its licence does not permit to redistribute in
-modified form:
+tag. The package does not ship its batch script, so `scripts/slides/extract_features.py`
+drives Trident's `Processor` with the settings below. Two adaptations are
+applied at runtime (`champs_pipeline.encoders.trident_adaptations`) rather
+than by changing Trident's source, which its licence does not permit to
+redistribute in modified form:
 
 - the H-optimus-0 and H-optimus-1 loaders check for `timm == 0.9.16`; the
-  check is satisfied at import time, and both encoders load and produce
-  identical outputs under timm 1.0.27;
+  check is satisfied while they build their model, and both encoders load and
+  produce the stored features under timm 1.0.27 (verified on the stored
+  features of the study);
 - the in-domain encoder (below) is added to Trident's encoder registry so
   that it runs through the same extraction path as the public encoders.
 
-Invocation: `run_batch_of_slides.py --task all --segmenter hest
---seg_conf_thresh 0.5`, with the encoder, magnification, and tile size per
-encoder as stated in Methods. Tissue segmentation uses the DeepLabv3
+Settings: segmentation with the `hest` segmenter at confidence 0.5, holes
+treated as tissue; tiles at 20x with the tile size per encoder as stated in
+Methods; no overlap. Tissue segmentation uses the DeepLabv3
 checkpoint `deeplabv3_seg_v4.ckpt` from `MahmoodLab/hest-tissue-seg`
 (commit `4d24a57a`, CC BY-NC-SA 4.0, SHA-256 prefix `4ddf8be82384544a`),
 at 10x, with holes treated as tissue. Scanner magnification and resolution
@@ -49,7 +55,8 @@ column.
 
 The in-domain encoder was trained with DINOv2 (upstream commit `7764ea0f`,
 2026-06-03, Apache 2.0), modified and published at
-`github.com/CPathBP/dinov2`, tag `champs-blockexp-v1` (commit `e70a7228`).
+`github.com/CPathBP/dinov2`, tag `champs-blockexp-v1` (commit `e70a7228`),
+which `make env` installs.
 The modifications are the adaptation method: the warm-started H-optimus-0
 backbone is extended by four identity-initialised transformer blocks, the
 original blocks are frozen, and the new blocks, the final normalisation
@@ -57,7 +64,12 @@ layer, and the projection heads are trained; the KoLeo regulariser is
 replaced by a kernel-density uniformity loss on the unit hypersphere
 (weight 0.05); HED colour-space stain augmentation is added; and a tile
 dataset reads the CHAMPS shards. Configuration:
-`configs/encoder_ssl/champs_vitg14_blockexp.yaml`.
+`configs/ssl/champs_vitg14_blockexp.yaml`; eight H100 GPUs, batch
+size 32 per GPU, teacher checkpoint of iteration 99,999. The fork's
+resharding routine was a no-op, so the teacher network used in the
+forward pass was refreshed only when its weights were gathered for
+evaluation, every 12,500 iterations; the student therefore distilled a
+teacher that changed eight times over the run.
 
 | Checkpoint | SHA-256 prefix |
 |---|---|

@@ -1,0 +1,49 @@
+# Continued DINOv2 pretraining of H-optimus-0 on CHAMPS MITS tiles by block
+# expansion: the warm-started base is frozen, four identity-initialised blocks
+# are appended and trained together with the final normalisation layer and the
+# projection heads. KoLeo is replaced by a kernel-density uniformity loss and
+# HED stain augmentation is added. Paths are relative to the working directory
+# of the training job (see slurm/train_ssl.slurm).
+dino:
+  head_n_prototypes: 65536
+  head_bottleneck_dim: 384
+  koleo_loss_weight: 0
+  kde_loss_weight: 0.05
+ibot:
+  separate_head: true
+  head_n_prototypes: 65536
+train:
+  batch_size_per_gpu: 32
+  dataset_path: ChampsTiles:root=artifacts/ssl_shards:extra=configs/ssl/holdout_slides.txt
+  centering: centering
+  num_workers: 7
+  OFFICIAL_EPOCH_LENGTH: 1250
+  saveckp_freq: 10
+student:
+  arch: vit_giant2
+  patch_size: 14
+  ffn_layer: swiglufused
+  block_chunks: 0
+  layerscale: 1.0e-05
+  num_register_tokens: 4
+  drop_path_rate: 0.2
+  pretrained_weights: artifacts/hoptimus0_dinov2_warmstart.pth
+  block_expansion: 4
+teacher:
+  momentum_teacher: 0.994
+  final_momentum_teacher: 0.9995
+optim:
+  epochs: 80
+  base_lr: 4.0e-04
+  warmup_epochs: 3
+  weight_decay_end: 0.1
+  layerwise_decay: 1.0
+  freeze_last_layer_epochs: 2
+crops:
+  global_crops_scale: [0.32, 1.0]
+  local_crops_scale: [0.05, 0.32]
+  local_crops_number: 8
+  global_crops_size: 224
+  local_crops_size: 98
+  hed_aug: true
+  hed_sigma: 0.05
