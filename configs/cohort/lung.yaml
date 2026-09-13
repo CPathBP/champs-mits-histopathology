@@ -1,0 +1,21 @@
+# Label configuration of the lung manifests.
+organ: lung
+organs: [right_lung, left_lung]
+labels:
+- bronchopneumonia
+- hyaline_membranes
+- aspiration_squames
+- aspiration_meconium
+- pneumonitis
+- lung_hemorrhage
+- preterm_lung
+- increased_alveolar_macrophages
+- lung_congestion
+- fibrin
+# The findings that select the checkpoint; an empty class among them fails the gate.
+core_labels: [bronchopneumonia, hyaline_membranes, aspiration_squames, aspiration_meconium, pneumonitis]
+negation_flags: [no_inflammation, unremarkable, minimal_nonspecific, no_viral_inclusions]
+quality_flags: [autolysis, maceration, crush_artifact, inadequate_for_dx, out_of_focus, no_scans_available]
+modifiers: [inflammation_character]
+# The encoder comparison runs on this organ group (the intersection fold design).
+encoder_comparison: true

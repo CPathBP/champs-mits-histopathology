@@ -1,0 +1,63 @@
+finding,organ_scope,decode_condition,icd,tier,level,quote
+aspiration_squames,lung,Neonatal aspiration syndromes,P24.1-P24.9,primary,L1/L2,"lung tissue with aspirated material in airspaces"
+aspiration_squames,lung,Aspiration pneumonia,J69.0,primary,L1/L2,"aspirated material in airspaces + associated inflammation (acute alveolar damage, BOOP)"
+aspiration_squames,lung,Intrauterine hypoxia / birth asphyxia,"P20, P21",primary,L1/L2,"histologic perinatal hypoxia in >=1 organ; pathologists confirmed 2026-08-17 that aspiration findings are this evidence"
+aspiration_meconium,lung,Meconium aspiration,P24.0,primary,L1/L2,"lung tissue with meconium in airspaces"
+aspiration_meconium,lung,Intrauterine hypoxia / birth asphyxia,"P20, P21",primary,L1/L2,"histologic perinatal hypoxia in >=1 organ; pathologists confirmed 2026-08-17 that aspiration findings are this evidence"
+aspiration_gi_contents,lung,Aspiration pneumonia / neonatal aspiration syndromes,"J69.0, P24.1-P24.9",primary,L1/L2,"aspirated material in airspaces"
+bronchopneumonia,lung,Pneumonia,J18,primary,L1,"strong histologic pyogenic pneumonia"
+bronchopneumonia,lung,Pathogen-specific bacterial pneumonias,"J13-J16",primary,L1/L2,"histologic pneumonia + agent in lung (viral patterns J10.0/J12 map to pneumonitis/DAD)"
+bronchopneumonia,lung,Congenital pneumonia,P23,primary,L1,"strong histologic pneumonia in a neonate <48 h or a stillbirth"
+bronchopneumonia,lung,Sepsis / neonatal sepsis,"A41.9, P36",contributing,L1,"histologic pyogenic infection in >=2 tissues"
+pneumonitis,lung,Viral pneumonias,J12.0-J12.8,primary,L1,"strong histologic viral pneumonia + virus in lung"
+pneumonitis,lung,HIV-related lymphoid interstitial pneumonitis,B22.1,primary,L1,"pathologic LIP (architecture destruction, lymphocytic infiltration) in an HIV+ patient"
+organizing_pneumonia,lung,Aspiration pneumonia,J69.0,contributing,L1,"associated inflammation (acute alveolar damage, BOOP)"
+bronchiolitis,lung,Bronchiolitis,"J21.0, J21.1, J21.8, J21.9",primary,L1,"histologic bronchiolitis: giant cells, bronchial-epithelium necrosis, intraluminal infiltrates"
+hyaline_membranes,lung,Respiratory distress syndrome / hyaline membrane disease,P22.0,primary,L1/L2,"strong/moderate histologic RDS (hyaline membranes)"
+diffuse_alveolar_damage,lung,Influenza with pneumonia,J10.0,primary,L1,"strong histologic (DAD) pneumonia + influenza in lung"
+diffuse_alveolar_damage,lung,Aspiration pneumonia,J69.0,contributing,L1,"acute alveolar damage as associated inflammation"
+edema,lung,Congestive heart failure,I50,primary,L1,"pathologic CHF (pulmonary edema, liver congestion) not otherwise attributable"
+edema,lung,SIDS,R95,contributing,L1,"lung may show intrathoracic petechiae/congestion/edema (descriptive)"
+lung_congestion,lung,SIDS,R95,contributing,L1,"lung may show intrathoracic petechiae/congestion/edema (descriptive)"
+pneumocystis,lung,Pneumocystis pneumonia,B59 + J17.3,primary,L1,"IHC of PCP in lung, or PCP in lung by PCR/TAC with histologic pneumonia"
+lung_hemorrhage,lung,none,,none,,"no pulmonary-hemorrhage condition in the standard; trauma pathology is generic"
+lung_hemosiderin,lung,none,,none,,
+increased_alveolar_macrophages,lung,none,,none,,
+preterm_lung,lung,none,,none,,"prematurity (P05/P07) is graded by weight and gestational age, never histology"
+lung_intravascular_leukocytosis,lung,none,,none,,
+lung_necrosis,lung,none,,none,,
+atelectasis,lung,none,,none,,
+overinflation,lung,none,,none,,
+pleuritis,lung,none,,none,,
+pneumocyte_hyperplasia,lung,none,,none,,
+fibrin,any,none,,none,,"fibrin alone is not cited; DAD wording maps separately"
+steatosis,liver,Kwashiorkor,E40,primary,L1,"histologic fatty liver infiltration (macrovesicular steatosis, esp. periportal)"
+steatosis,liver,Marasmic kwashiorkor,E42,contributing,L1,"requires kwashiorkor L1"
+hemozoin_pigment,any,Malaria (no clinical translation) / past malaria,"B50.9, B51.9",primary,L1,"histopathologic malarial pigment without active infection"
+hemozoin_pigment,any,Cerebral / severe malaria,"B50.0, B50.8",contributing,L1,"L1 histology is sequestered parasites, a related but distinct finding"
+intraerythrocytic_parasites,any,Severe / cerebral malaria,"B50.8, B50.0",primary,L1,"sequestered parasites in (non-)brain organs by histopathology"
+liver_congestion,liver,Congestive heart failure,I50,primary,L1,"pathologic CHF (pulmonary edema, liver congestion) not otherwise attributable"
+hepatic_inflammation_portal,liver,Congenital viral hepatitis,P35.3,primary,L1,"pathologic hepatitis (in a child <24 mo, maternal hepatitis known)"
+hepatic_inflammation_lobular,liver,Congenital viral hepatitis,P35.3,primary,L1,"pathologic hepatitis"
+hepatic_inflammation_sinusoidal,liver,none,,none,,"sinusoidal leukocytosis is not cited as evidence"
+giant_cell_transformation,liver,Congenital viral hepatitis,P35.3,contributing,L1,"neonatal giant-cell hepatitis as the classic pattern of pathologic hepatitis (interpretive)"
+liver_necrosis,liver,Congenital viral hepatitis,P35.3,contributing,L1,"necrosis as part of pathologic hepatitis (interpretive)"
+cholestasis,liver,none,,none,,"jaundice enters only as a clinical sign"
+ductular_proliferation,liver,none,,none,,
+paucity_of_bile_ducts,liver,none,,none,,
+sinusoidal_dilation,liver,none,,none,,
+hepatocellular_swelling,liver,none,,none,,
+liver_hemorrhage,liver,none,,none,,
+liver_hemosiderin,liver,none,,none,,
+granulomas,any,Tuberculosis / congenital TB,"A15-A19, P37.0",primary,L1,"histologic M. tuberculosis; primary hepatic complex / caseating granulomas"
+granulomas,any,Neonatal listeriosis,P37.2,primary,L1,"disseminated inflammatory granuloma on pathology"
+viral_inclusions,any,Congenital CMV disease,P35.1,primary,L1,"histopathologic CMV inclusion disease"
+viral_inclusions,any,Other congenital viral diseases,"P35.8, P35.9",primary,L1,"positive lab test (histopathology or PCR/TAC) for a congenital infection"
+fungal,any,Neonatal candidiasis,P37.5,contributing,,"sepsis criteria + Candida by culture or TAC/PCR (not histology-led)"
+extramedullary_hematopoiesis,any,Congenital rubella syndrome,P35.0,contributing,L1/L2,"EMH ('blueberry muffin') listed as a clinical complication; tissue correlate interpretive"
+atypical_cells_tumor,any,Malignant neoplasms,"C00-C96",primary,L1,"histologic confirmation; histopathologic lymphoid/hematopoietic neoplasm"
+bacterial_colonies,any,none,,none,,"not cited; sepsis criteria explicitly discount postmortem contamination/overgrowth"
+calcification,any,none,,none,,"cerebral calcifications are a CMV clinical sign (CNS imaging), not target-organ histology"
+fibrosis,any,none,,none,,
+thrombosis,any,none,,none,,
+pigment_unspecified,any,none,,none,,"uncharacterised pigment evidences nothing until resolved"
