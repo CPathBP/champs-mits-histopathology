@@ -1,10 +1,8 @@
 """Build the case splits, the fold manifests and the class-count gate.
 
-Per organ group, three designs on the manifests: ``fivefold`` (balanced
-case microfolds, seed 42, shared by every label variant),
-``loso_nested`` (one fold per site with an inner validation split) and
-``intersect_fivefold`` (the five-fold design over the slides every
-compared encoder covers). Writes ``case_splits.csv`` (organ, design,
+Per organ group, two designs on the manifests: ``fivefold`` (balanced
+case microfolds, seed 42, shared by every label variant) and
+``loso_nested`` (one fold per site with an inner validation split). Writes ``case_splits.csv`` (organ, design,
 fold, case, split), ``fold_csvs/<organ>_<variant>_<design>/fold_<k>.csv``
 (the manifest with a ``split`` column, what training reads),
 ``gate_table.csv`` and ``gate_report.md``. Exits with an error when a
@@ -27,30 +25,13 @@ from champs_pipeline.data_prep.reference_a import VARIANTS
 SITE_DESIGN = "loso_nested"
 
 
-def covered_by_every_encoder(manifest, encoders):
-    """The manifest rows with a feature file for every compared encoder."""
-    keep = pd.Series(True, index=manifest.index)
-    for encoder in encoders:
-        keep &= manifest[f"feature_path_{encoder}"].notna()
-    return manifest[keep].reset_index(drop=True)
-
-
-def designs_for(manifest, labels, seed, comparison_encoders):
-    """The (design, splits, slide subset) triples of one organ group.
-
-    The intersection design is built when ``comparison_encoders`` is not
-    empty (the encoder comparison runs on one organ group).
-    """
+def designs_for(manifest, labels, seed):
+    """The (design, splits) pairs of one organ group."""
     case_map = fivefold_case_map(manifest, labels, seed)
-    designs = [
-        ("fivefold", fivefold_splits(case_map), None),
-        (SITE_DESIGN, site_splits(manifest, labels, seed), None),
+    return [
+        ("fivefold", fivefold_splits(case_map)),
+        (SITE_DESIGN, site_splits(manifest, labels, seed)),
     ]
-    if comparison_encoders:
-        subset = covered_by_every_encoder(manifest, comparison_encoders)
-        subset_map = fivefold_case_map(subset, labels, seed)
-        designs.append(("intersect_fivefold", fivefold_splits(subset_map), set(subset["slide_id"])))
-    return designs
 
 
 def markdown_table(frame):
@@ -86,12 +67,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--manifest-dir", type=Path, required=True)
     ap.add_argument("--config", type=Path, action="append", required=True)
-    ap.add_argument("--encoders", required=True, help="configs/cohort/encoders.yaml")
     ap.add_argument("--out-dir", type=Path, required=True)
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
-    encoders = yaml.safe_load(Path(args.encoders).read_text())
     args.out_dir.mkdir(parents=True, exist_ok=True)
     split_parts, gate_parts = [], []
     for path in args.config:
@@ -101,12 +80,11 @@ def main():
                                     low_memory=False, dtype={"case_id": str}) for v in VARIANTS}
         for variant in VARIANTS:
             validate_manifest_compatibility(manifests["elig"], manifests[variant], labels)
-        comparison = encoders["comparison_encoders"] if config.get("encoder_comparison") else []
-        for design, splits, subset in designs_for(manifests["elig"], labels, args.seed, comparison):
+        for design, splits in designs_for(manifests["elig"], labels, args.seed):
             check_test_coverage(splits)
             split_parts.append(splits.assign(organ=organ, design=design))
             for variant, manifest in manifests.items():
-                rows = manifest if subset is None else manifest[manifest["slide_id"].isin(subset)]
+                rows = manifest
                 fold_dir = args.out_dir / "fold_csvs" / f"{organ}_{variant}_{design}"
                 fold_dir.mkdir(parents=True, exist_ok=True)
                 folds = {}

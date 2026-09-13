@@ -4,12 +4,10 @@ The case reference states, per (case, organ, slide source, finding), what
 the central laboratory's description of that organ asserts: ``positive``
 when a finding record exists, ``uncertain`` when only a hedged record
 exists, ``silent`` otherwise. The slide reference maps that onto the
-training slides in three variants. ``raw`` keeps silence as a negative;
+training slides in two variants. ``raw`` keeps silence as a negative;
 ``elig`` masks a negative whose case asserts or hedges the finding
 elsewhere, or whose description names a related finding or a quality
-problem that makes silence uninformative; ``elig_screen`` also masks a
-negative whose case a direct test screen names for that finding. A
-positive is never masked.
+problem that makes silence uninformative. A positive is never masked.
 """
 
 import re
@@ -19,7 +17,7 @@ import pandas as pd
 from champs_pipeline.data_prep.cohort import UNIT, label_records
 
 STATUSES = ("positive", "uncertain", "silent")
-VARIANTS = ("raw", "elig", "elig_screen")
+VARIANTS = ("raw", "elig")
 # Findings whose bare mention makes silence on another finding uninformative.
 RELATED_FINDINGS = {
     "hyaline_membranes": ("diffuse_alveolar_damage", "fibrin_lining"),
@@ -72,14 +70,23 @@ def asserted_elsewhere(findings, finding, organs):
 
 
 def related_units(findings, related):
-    """The units whose description names the related finding."""
+    """The units whose description names the related finding.
+
+    Fibrin counts only when its quote says it lines the alveoli; unnamed
+    pigment counts only when it is not stated to be non-polarizable
+    (hemozoin is birefringent).
+    """
     rows = label_records(findings)
+    rows = rows[rows["kind"] == "condition"]
     if related == "fibrin_lining":
-        fibrin = rows[(rows["semantic_group"] == "fibrin") & (rows["kind"] == "condition")]
+        fibrin = rows[rows["semantic_group"] == "fibrin"]
         quotes = fibrin["finding_examples"].fillna("")
         rows = fibrin[quotes.map(lambda q: bool(_FIBRIN_LINING.search(q)))]
+    elif related == "pigment_unspecified":
+        pigment = rows[rows["semantic_group"] == related]
+        rows = pigment[pigment.get("mod_polarizable", pd.Series(index=pigment.index)) != "no"]
     else:
-        rows = rows[(rows["semantic_group"] == related) & (rows["kind"] == "condition")]
+        rows = rows[rows["semantic_group"] == related]
     return set(map(tuple, rows[UNIT].values))
 
 
@@ -92,15 +99,13 @@ def quality_units(findings):
     return set(map(tuple, rows.loc[blurred | autolysed, UNIT].values))
 
 
-def slide_reference(slides, reference, findings, screen, labels, organs):
+def slide_reference(slides, reference, findings, labels, organs):
     """Per (slide, finding, variant): the label, the keep mask and the reason for a mask.
 
     ``slides`` are the training slides of one organ group with their
-    unit columns; ``reference`` is the case reference; ``screen`` lists
-    (case_id, label) pairs whose negatives are uncertain.
+    unit columns; ``reference`` is the case reference.
     """
     status = reference.set_index(UNIT + ["finding"])
-    screened = {(str(c), l) for c, l in zip(screen["case_id"], screen["label"])}
     quality = quality_units(findings)
     rows = []
     for finding in labels:
@@ -113,11 +118,11 @@ def slide_reference(slides, reference, findings, screen, labels, organs):
             record = status.loc[unit + (finding,)] if unit + (finding,) in status.index else None
             for variant in VARIANTS:
                 rows.append(_label_row(slide, finding, variant, record, unit, elsewhere,
-                                       screened, related, quality))
+                                       related, quality))
     return pd.DataFrame(rows)
 
 
-def _label_row(slide, finding, variant, record, unit, elsewhere, screened, related, quality):
+def _label_row(slide, finding, variant, record, unit, elsewhere, related, quality):
     """One row of the slide reference."""
     row = {"slide_id": slide.slide_id, "champs_deid": slide.champs_deid, "organ": slide.organ,
            "slide_source": slide.slide_source, "finding": finding, "variant": variant}
@@ -127,10 +132,8 @@ def _label_row(slide, finding, variant, record, unit, elsewhere, screened, relat
         label = 1.0
     elif record is not None:
         reason = "uncertain"
-    elif variant != "raw":
-        screen = screened if variant == "elig_screen" else set()
-        reason = _mask_reason(slide.champs_deid, finding, unit, elsewhere, screen, related,
-                             quality)
+    elif variant == "elig":
+        reason = _mask_reason(slide.champs_deid, unit, elsewhere, related, quality)
     row["label"] = float("nan") if reason else label
     row["mask"] = 0.0 if reason else 1.0
     row["mask_reason"] = reason
@@ -139,12 +142,10 @@ def _label_row(slide, finding, variant, record, unit, elsewhere, screened, relat
     return row
 
 
-def _mask_reason(case_id, finding, unit, elsewhere, screened, related, quality):
+def _mask_reason(case_id, unit, elsewhere, related, quality):
     """Why a silent unit is not a negative in the eligibility variant, or None."""
     if case_id in elsewhere:
         return "eligibility"
-    if (case_id, finding) in screened:
-        return "screen"
     if unit in related:
         return "related_finding"
     if unit in quality:

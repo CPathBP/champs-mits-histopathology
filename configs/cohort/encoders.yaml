@@ -1,7 +1,6 @@
 # Tile encoders of the study and the resolution directory of their feature files.
 # The cohort is defined on the cohort encoder; the others are availability
-# columns of the cohort table. The comparison encoders define the
-# intersection design of the encoder comparison.
+# columns of the cohort table.
 cohort_encoder: virchow2
 encoders:
   virchow2: 20x_224px_0px_overlap
@@ -10,4 +9,3 @@ encoders:
   hoptimus0: 20x_224px_0px_overlap
   hoptimus1: 20x_224px_0px_overlap
   champs_mits: champs_mits_blockexp_iter99999
-comparison_encoders: [virchow2, uni_v2, conch_v15, hoptimus0, champs_mits]

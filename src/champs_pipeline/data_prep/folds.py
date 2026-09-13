@@ -1,14 +1,12 @@
 """Case-level fold designs on a manifest, and the class-count gate.
 
-Three designs share the balanced microfold assignment of ``fivefold``:
+Two designs share the balanced microfold assignment of ``fivefold``:
 
 - ``fivefold``: ten case microfolds; per outer fold two are the test set,
   one the validation set, seven the training set.
 - ``loso_nested``: one fold per site; the site is the test set and one
   tenth of the other sites' cases, balanced the same way, the validation
   set.
-- ``intersect_fivefold``: the ``fivefold`` design over the slides every
-  compared encoder has a file for.
 """
 
 import numpy as np

@@ -17,5 +17,3 @@ core_labels: [bronchopneumonia, hyaline_membranes, aspiration_squames, aspiratio
 negation_flags: [no_inflammation, unremarkable, minimal_nonspecific, no_viral_inclusions]
 quality_flags: [autolysis, maceration, crush_artifact, inadequate_for_dx, out_of_focus, no_scans_available]
 modifiers: [inflammation_character]
-# The encoder comparison runs on this organ group (the intersection fold design).
-encoder_comparison: true

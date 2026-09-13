@@ -39,6 +39,7 @@ def findings():
         record(CASE, "left_lung", "cpl_slides", "hyaline_membranes", kind="uncertain"),
         record(CASE, "left_lung", "cpl_slides", "diffuse_alveolar_damage"),
         record(CASE, "liver", "cpl_slides", "pigment_unspecified"),
+        record(CASE, "liver", "cpl_review_of_scans", "steatosis"),
         record(CASE, "liver", "cpl_slides", "autolysis", kind="quality", severity="severe"),
         record("C2", "right_lung", "site_report", "pneumonitis"),
         record("C2", "liver", "cpl_slides", "not_performed", kind="quality"),
@@ -64,6 +65,10 @@ def inventory():
         slide(C2_RIGHT_SITE, "KEAA00002"),                              # site report only
         slide(C3_RIGHT_CPL, "KEAA00003"),                               # inadequate
         slide("M00004.043_KEAA00004", "KEAA00004"),                     # no case mapping
+        slide(C1_LIVER_CPL, "KEAA00009"),                               # a copy under another case
+        slide("M00001.041 - 2023-01-05 10.00.00", "KEAA00001"),         # an earlier scan
+        slide("M00001.041 - 2024-02-06 11.00.00", "KEAA00001"),         # and its rescan
+        slide("M00001.043.GM", "KEAA00001"),                            # a Gram stain
     ])
 
 
@@ -101,6 +106,14 @@ def test_tissue_code_and_organ():
     assert organ_of_slide("M00001.UKN_KEAA00001") is None
 
 
+def test_duplicate_file_keeps_the_named_case(inventory):
+    mapping = pd.DataFrame({"study_id": ["KEAA00001"], "champs_deid": [CASE]})
+    slides = co.slide_table(inventory, mapping).set_index("slide_id")
+    assert slides.loc[C1_LIVER_CPL, "study_id"] == "KEAA00001"
+    assert slides.loc[C1_LIVER_CPL, "n_files"] == 2
+    assert slides.loc[C1_RIGHT_SITE, "n_files"] == 1
+
+
 def test_funnel_drops_each_slide_once_with_its_stage(built):
     _, dropped, boxes = built
     assert not dropped["slide_id"].duplicated().any()
@@ -109,9 +122,12 @@ def test_funnel_drops_each_slide_once_with_its_stage(built):
     assert stage["M00001.UKN_KEAA00001"] == "no_tissue_code"
     assert stage["M00001.047_KEAA00001"] == "not_target_organ"
     assert stage["M00004.043_KEAA00004"] == "no_case_mapping"
+    assert stage["M00001.043.GM"] == "not_he_by_name"
+    assert stage["M00001.041 - 2023-01-05 10.00.00"] == "older_scan"
     assert stage[C2_RIGHT_SITE] == "no_cpl_authored_record"
     assert stage[C3_RIGHT_CPL] == "quality_flags_only"
-    assert boxes[0]["n"] == 9 and boxes[-1]["n"] == 3
+    assert boxes[0]["n"] == 12 and boxes[-1]["n"] == 4
+    assert "M00001.041 - 2024-02-06 11.00.00" not in set(dropped["slide_id"])
 
 
 def test_linked_and_training_flags(built):
@@ -137,9 +153,8 @@ def test_slide_reference_mask_reasons(built, findings, schema_v45):
     cohort, _, _ = built
     lungs = cohort[cohort["training"] & (cohort["organ_group"] == "lung")]
     reference = ra.case_reference(findings, schema_v45, LUNGS)
-    screen = pd.DataFrame({"case_id": [CASE], "label": ["pneumonitis"]})
     labels = ["bronchopneumonia", "hyaline_membranes", "pneumonitis", "fibrin"]
-    table = ra.slide_reference(lungs, reference, findings, screen, labels, LUNGS)
+    table = ra.slide_reference(lungs, reference, findings, labels, LUNGS)
     table = table.set_index(["organ", "finding", "variant"])
     assert table.loc[("right_lung", "bronchopneumonia", "raw"), "label"] == 1.0
     assert table.loc[("right_lung", "bronchopneumonia", "raw"), "severity"] == "mild"
@@ -148,7 +163,6 @@ def test_slide_reference_mask_reasons(built, findings, schema_v45):
     assert table.loc[("right_lung", "hyaline_membranes", "raw"), "label"] == 0.0
     assert table.loc[("right_lung", "hyaline_membranes", "elig"), "mask_reason"] == "eligibility"
     assert table.loc[("right_lung", "pneumonitis", "elig"), "mask_reason"] is None
-    assert table.loc[("right_lung", "pneumonitis", "elig_screen"), "mask_reason"] == "screen"
     assert table.loc[("right_lung", "fibrin", "elig"), "mask_reason"] is None
     assert table["mask"].eq(table["label"].notna().astype(float)).all()
 
@@ -156,6 +170,10 @@ def test_slide_reference_mask_reasons(built, findings, schema_v45):
 def test_related_and_quality_units(findings):
     assert (CASE, "left_lung", "CPL") in ra.related_units(findings, "diffuse_alveolar_damage")
     assert ("C3", "liver", "CPL") in ra.related_units(findings, "fibrin_lining")
+    assert (CASE, "liver", "CPL") in ra.related_units(findings, "pigment_unspecified")
+    findings["mod_polarizable"] = None
+    findings.loc[findings["semantic_group"] == "pigment_unspecified", "mod_polarizable"] = "no"
+    assert (CASE, "liver", "CPL") not in ra.related_units(findings, "pigment_unspecified")
     assert ra.quality_units(findings) == {(CASE, "liver", "CPL")}
 
 
@@ -163,11 +181,10 @@ def test_manifest_join(built, findings, schema_v45):
     cohort, _, _ = built
     lungs = cohort[cohort["training"] & (cohort["organ_group"] == "lung")]
     reference = ra.case_reference(findings, schema_v45, LUNGS)
-    screen = pd.DataFrame({"case_id": [], "label": []})
     config = {"organ": "lung", "organs": LUNGS, "labels": ["bronchopneumonia", "hyaline_membranes"],
               "negation_flags": ["unremarkable"], "quality_flags": ["autolysis"],
               "modifiers": ["inflammation_character"]}
-    rows = ra.slide_reference(lungs, reference, findings, screen, config["labels"], LUNGS)
+    rows = ra.slide_reference(lungs, reference, findings, config["labels"], LUNGS)
     cases = pd.DataFrame({"champs_deid": [CASE], "template": ["HTML"], "origin": ["EXPLICIT"]})
     lance = {"virchow2": pd.DataFrame({"slide_id": lungs["slide_id"], "lance_dataset_path": "x",
                                        "lance_row_idx": range(len(lungs))})}

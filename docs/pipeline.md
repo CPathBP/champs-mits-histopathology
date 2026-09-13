@@ -78,10 +78,10 @@ mapping, `STORE` the directory of the feature stores.
 | Step | Command | Output |
 |---|---|---|
 | Cohort | `python scripts/cohort/build_cohort.py --inventory $ART/wsi_inventory.csv --index $ART/feature_index.csv --stain-scores $ART/stain_scores.csv --study-id-mapping $MAP --findings $ART/findings.parquet --attribution $ART/case_attribution.parquet --encoders configs/cohort/encoders.yaml --demographics $L2/CHAMPS_deid_basic_demographics.csv --decode $L2/CHAMPS_deid_decode_results.csv --out-dir $ART/cohort` | `cohort_slides.csv` (every H&E slide of a lung or the liver with its case, slide source, inclusion flags and per-encoder feature paths), `cohort_cases.csv` (every case of the report table with its inclusion flags, demographics and cause-of-death group), `dropped_slides.csv` (every drop with its stage and reason), `funnel.json` (the box counts of the report arm and the slide arm) |
-| Reference A | `python scripts/cohort/build_reference_a.py --findings $ART/findings.parquet --schema configs/extraction/morphology_schema_v4_5.yaml --cohort-dir $ART/cohort --screen configs/cohort/screen_cases.csv --config configs/cohort/lung.yaml --config configs/cohort/liver.yaml --out-dir $ART/reference_a` | `reference_a_case.parquet` (per case, organ, slide source and finding: what the central laboratory's description asserts), `reference_a_slide.parquet` (per training slide, finding and variant: the label, the keep mask and the reason for a mask) |
+| Reference A | `python scripts/cohort/build_reference_a.py --findings $ART/findings.parquet --schema configs/extraction/morphology_schema_v4_5.yaml --cohort-dir $ART/cohort --config configs/cohort/lung.yaml --config configs/cohort/liver.yaml --out-dir $ART/reference_a` | `reference_a_case.parquet` (per case, organ, slide source and finding: what the central laboratory's description asserts), `reference_a_slide.parquet` (per training slide, finding and variant: the label, the keep mask and the reason for a mask) |
 | Feature store, *per encoder* | `python scripts/cohort/build_feature_store.py --cohort-slides $ART/cohort/cohort_slides.csv --encoder virchow2 --out-dir $STORE` | `<encoder>.lance` and `lance_index_<encoder>.csv` (the dataset row of every training slide) |
 | Manifests | `python scripts/cohort/build_manifests.py --cohort-dir $ART/cohort --reference-dir $ART/reference_a --findings $ART/findings.parquet --schema <schema> --config configs/cohort/lung.yaml --config configs/cohort/liver.yaml --encoders configs/cohort/encoders.yaml --lance-dir $STORE --out-dir $ART/manifests` | `manifest_<organ>_<variant>.csv`, one row per training slide with the label, mask, severity, extent, modifier and flag columns, the feature paths and store rows of every encoder, and the demographics |
-| Folds | `python scripts/cohort/build_folds.py --manifest-dir $ART/manifests --config configs/cohort/lung.yaml --config configs/cohort/liver.yaml --encoders configs/cohort/encoders.yaml --out-dir $ART/folds --seed 42` | `case_splits.csv` (organ, design, fold, case, split), `fold_csvs/<organ>_<variant>_<design>/fold_<k>.csv` (the manifest with a split column), `gate_table.csv` and `gate_report.md` (class counts per fold and label with a pass, warn or fail status) |
+| Folds | `python scripts/cohort/build_folds.py --manifest-dir $ART/manifests --config configs/cohort/lung.yaml --config configs/cohort/liver.yaml --out-dir $ART/folds --seed 42` | `case_splits.csv` (organ, design, fold, case, split), `fold_csvs/<organ>_<variant>_<design>/fold_<k>.csv` (the manifest with a split column), `gate_table.csv` and `gate_report.md` (class counts per fold and label with a pass, warn or fail status) |
 | Tables | `python scripts/cohort/render_funnel.py --cohort-dir $ART/cohort --out-dir $ART/tables`; `python scripts/cohort/render_table1.py --cohort-dir $ART/cohort --out-dir $ART/tables`; `python scripts/cohort/render_finding_burden.py --reference-dir $ART/reference_a --cohort-dir $ART/cohort --decode-map configs/cohort/decode_histology_map.csv --config configs/cohort/lung.yaml --config configs/cohort/liver.yaml --out-dir $ART/tables` | the funnel tables and figure, Table 1 (full and compact), the finding supply and the candidate table, each a read of the cohort artifacts |
 
 Rules as run. A slide enters the linked cohort when its name carries no
@@ -103,23 +103,13 @@ negative and masks the uncertain cells. The `elig` variant also masks a
 negative whose case records or hedges the finding in any section of that
 organ, whose description names a related finding that makes the silence
 uninformative (diffuse alveolar damage or fibrin lining the alveoli for
-hyaline membranes, unspecified pigment for hemozoin pigment), or whose
-description is out of focus or severely autolysed. The `elig_screen`
-variant adds the direct-test screen: a negative whose case the screen
-lists for that finding (`configs/cohort/screen_cases.csv`) is masked as
-well. The screen is a frozen input: case and finding pairs, for
-bronchopneumonia and pneumonitis in the lungs and hemozoin pigment in the
-liver, whose case has a positive direct test (tissue PCR panel,
-immunohistochemistry, PCR, special stain or clinical laboratory result)
-while the report does not record the finding; it was drawn from an
-earlier label analysis that is not part of this repository, and the file
-names the evidence channel and trigger of every pair. A positive is never
-masked in any variant. The fold designs
+hyaline membranes, unnamed pigment not stated to be non-polarizable for
+hemozoin pigment), or whose description is out of focus or severely
+autolysed. A positive is never masked in either variant. The fold designs
 share one balanced assignment of cases to ten microfolds (site, per-finding
 case positives and their interaction, slide count; seed 42): five outer
-folds of two test microfolds and one validation microfold; one fold per
-site with a validation tenth of the other sites' cases; and the five-fold
-design over the slides every compared encoder covers.
+folds of two test microfolds and one validation microfold, and one fold
+per site with a validation tenth of the other sites' cases.
 
 The later parts (training, inference, evaluation, reader study,
 manuscript) are added here as they are released.

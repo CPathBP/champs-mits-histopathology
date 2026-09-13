@@ -14,9 +14,12 @@ inadequate description, the stain classifier calls it H&E, and a
 correctly scaled feature file exists for the cohort encoder.
 """
 
+import re
+
 import pandas as pd
 
 from champs_pipeline.data_prep.feature_index import usable_files
+from champs_pipeline.data_prep.identifiers import study_id_in_name
 from champs_pipeline.data_prep.reports import TEXT_SOURCE_TO_SLIDE_SOURCE, classify_slide_source
 from champs_pipeline.data_prep.stains import is_he_slide
 from champs_pipeline.data_prep.tissue import organ_of_slide, tissue_code
@@ -33,10 +36,13 @@ LABEL_SOURCES = {
     "CPL": ("cpl_slides", "implicit_cpl"),
 }
 UNIT = ["champs_deid", "organ", "slide_source"]
+# A slide scanned again carries the scan time in its name; the newest scan stands for it.
+_SCAN_TIME = re.compile(r"^(?P<stem>.+?) - (?P<time>\d{4}-\d\d-\d\d \d\d\.\d\d\.\d\d)$")
 
 SLIDE_COLUMNS = [
     "slide_id", "champs_deid", "study_id", "site", "organ", "organ_group", "slide_source",
-    "tissue_code", "scanner_power", "wsi_path", "p_non_HE", "linked", "training", "drop_stage",
+    "tissue_code", "scanner_power", "wsi_path", "n_files", "p_non_HE", "linked", "training",
+    "drop_stage",
 ]
 
 
@@ -45,10 +51,19 @@ def slide_table(inventory, mapping):
 
     ``inventory`` is the crawl of the store (one row per file);
     ``mapping`` has ``study_id`` and ``champs_deid``. A slide id that
-    names several files keeps the first file by path.
+    names several files (a scan filed under two case directories, or two
+    scans of one slide) keeps the file whose case directory matches the
+    study id in its name, else the first by path; ``n_files`` records
+    the count.
     """
-    slides = inventory.sort_values("wsi_path").drop_duplicates("slide_id").copy()
-    slides["slide_id"] = slides["slide_id"].astype(str)
+    files = inventory.copy()
+    files["slide_id"] = files["slide_id"].astype(str)
+    named_case = files["slide_id"].map(study_id_in_name)
+    files["_in_named_case"] = files["case_id"].astype(str) == named_case
+    files = files.sort_values(["slide_id", "_in_named_case", "wsi_path"],
+                              ascending=[True, False, True])
+    slides = files.drop_duplicates("slide_id").drop(columns="_in_named_case").copy()
+    slides["n_files"] = slides["slide_id"].map(files["slide_id"].value_counts())
     slides = slides.rename(columns={"case_id": "study_id"})
     deid = dict(zip(mapping["study_id"].astype(str), mapping["champs_deid"].astype(str)))
     slides["champs_deid"] = slides["study_id"].map(deid)
@@ -94,6 +109,14 @@ def unit_flags(findings):
         **{k: rows[k] for k in UNIT},
     })
     return flags.groupby(UNIT)[["supervisable", "inadequate"]].any()
+
+
+def older_scans(slides):
+    """The slides that are an earlier scan of a slide scanned again (same case and name stem)."""
+    parts = slides["slide_id"].str.extract(_SCAN_TIME)
+    scans = slides[parts["stem"].notna()].assign(stem=parts["stem"], time=parts["time"])
+    newest = scans.sort_values("time").drop_duplicates(["champs_deid", "stem"], keep="last")
+    return set(scans["slide_id"]) - set(newest["slide_id"])
 
 
 class Funnel:
@@ -174,6 +197,8 @@ def build_cohort(slides, index, stain_scores, findings, encoders, cohort_encoder
     usable = usable_files(index, cohort_encoder, encoders[cohort_encoder])
     funnel.drop("no_usable_feature_file", funnel.slides["slide_id"].isin(set(usable["slide_id"])),
                 f"no correctly scaled {cohort_encoder} feature file")
+    funnel.drop("older_scan", ~funnel.slides["slide_id"].isin(older_scans(funnel.slides)),
+                "an earlier scan of a slide that was scanned again")
     training = set(funnel.slides["slide_id"])
 
     cohort = candidates
@@ -181,7 +206,8 @@ def build_cohort(slides, index, stain_scores, findings, encoders, cohort_encoder
     cohort["training"] = cohort["slide_id"].isin(training)
     stage_of = {row["slide_id"]: row["stage"] for row in funnel.dropped}
     cohort["drop_stage"] = cohort["slide_id"].map(stage_of)
-    cohort = cohort.merge(stain_scores[["slide_id", "p_non_HE"]], on="slide_id", how="left")
+    scores = stain_scores[["slide_id", "p_non_HE"]].drop_duplicates("slide_id")
+    cohort = cohort.merge(scores, on="slide_id", how="left")
     cohort = cohort[SLIDE_COLUMNS]
     for encoder, resolution in encoders.items():
         files = usable_files(index, encoder, resolution).set_index("slide_id")

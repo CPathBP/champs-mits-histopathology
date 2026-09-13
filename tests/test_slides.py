@@ -82,3 +82,14 @@ def test_index_and_chunks(tmp_path):
     reuse = pd.read_csv(tmp_path / "reuse" / "indomain_chunk_0.csv")
     assert list(reuse["wsi"]) == ["Kenya/Cases/K1/S1.svs"]
     assert reuse["coords_path"].iloc[0].endswith("chunk_1/20x_224px_0px_overlap/patches/S1_patches.h5")
+
+
+def test_gram_suffix_is_a_stain_token():
+    from champs_pipeline.data_prep.stains import detect_stain, is_he_slide
+    assert detect_stain("M03562.045.GM") == "GRAM"
+    assert not is_he_slide("M03562.045.GM")
+    assert is_he_slide("M03562.045")
+    assert detect_stain("M03052.043  CMV .ndpi") == "IHC"
+    assert detect_stain("M00156.045 Groc ") == "GROCOTT"
+    assert detect_stain("M03340.045 - 2025-07-09 17.57.50 Klebsiella.") == "IHC"
+    assert is_he_slide("M00221.043 R LUNG")

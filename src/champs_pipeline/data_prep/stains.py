@@ -1,9 +1,10 @@
 """Stain detection from slide names.
 
 The archive names a slide after its stain when it is not H&E, either as a
-whole word (``_GRAM_``, ``_PAS_``) or, for immunohistochemistry, as ``IHC``
-followed by a batch number (``_IHC2019-227-25_``). A name without a stain
-token is H&E.
+whole word (``_GRAM_``, ``_PAS_``, the suffix ``.GM`` of one site's Gram
+stains, the abbreviations and antibody names some sites write into the
+name) or, for immunohistochemistry, as ``IHC`` followed by a batch number
+(``_IHC2019-227-25_``). A name without a stain token is H&E.
 """
 
 import re
@@ -11,11 +12,20 @@ from typing import Optional
 
 STAIN_NORMALIZATION = {
     "H_AND_E": "HE", "HE": "HE", "H_E": "HE",
-    "GRAMSTAIN": "GRAM", "GRAM": "GRAM", "GROCOTT": "GROCOTT",
-    "TRICHROME": "TRICHROME", "GMS": "GMS", "PAS": "PAS", "AFB": "AFB", "IRON": "IRON", "ZN": "ZN",
-    "RETICULIN": "RETICULIN", "WS": "WS", "VERHOEFF": "VERHOEFF", "MUCICARMINE": "MUCICARMINE",
-    "HALL": "HALL", "FONTANA": "FONTANA", "FM": "FM", "IHC": "IHC",
+    "GRAMSTAIN": "GRAM", "GRAM": "GRAM", "GM": "GRAM",
+    "GROCOTT": "GROCOTT", "GROC": "GROCOTT", "GRO": "GROCOTT",
+    "TRICHROME": "TRICHROME", "MT": "TRICHROME", "GMS": "GMS", "PAS": "PAS", "AFB": "AFB",
+    "IRON": "IRON", "FE": "IRON", "ZN": "ZN", "RETICULIN": "RETICULIN", "RETIC": "RETICULIN",
+    "WS": "WS", "VERHOEFF": "VERHOEFF", "MUCICARMINE": "MUCICARMINE",
+    "HALL": "HALL", "FONTANA": "FONTANA", "FM": "FM", "IHC": "IHC", "IH": "IHC",
 }
+# Antibodies and organisms named on immunostained slides; every one is IHC.
+ANTIBODY_WORDS = (
+    "CMV", "HSV1", "HSV2", "HVS1", "HVS2", "KLEBSIELLA", "PNEUMO", "COLI", "TB",
+    "CD3", "CD20", "CD34", "CD117", "CD235A", "CKIT", "TDT", "LCA", "MURAMIDASE",
+    "MYELOPEROCIDASE", "MYELOPEROXIDASE",
+)
+STAIN_NORMALIZATION.update({word: "IHC" for word in ANTIBODY_WORDS})
 
 # Longest tokens first, so that GRAMSTAIN matches before GRAM. IHC may be
 # followed by its batch number; every other token must stand alone.

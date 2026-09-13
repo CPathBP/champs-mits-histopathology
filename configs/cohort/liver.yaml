@@ -13,4 +13,3 @@ core_labels: [steatosis, hemozoin_pigment]
 negation_flags: [no_inflammation, unremarkable, minimal_nonspecific, no_emh]
 quality_flags: [autolysis, maceration, inadequate_for_dx, out_of_focus, no_scans_available]
 modifiers: [droplet]
-encoder_comparison: false
