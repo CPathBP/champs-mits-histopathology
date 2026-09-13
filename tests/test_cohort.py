@@ -171,7 +171,9 @@ def test_related_and_quality_units(findings):
     assert (CASE, "left_lung", "CPL") in ra.related_units(findings, "diffuse_alveolar_damage")
     assert ("C3", "liver", "CPL") in ra.related_units(findings, "fibrin_lining")
     assert (CASE, "liver", "CPL") in ra.related_units(findings, "pigment_unspecified")
-    findings["mod_polarizable"] = None
+    # The findings table stores modifiers as nullable text; an unstated value still masks.
+    findings["mod_polarizable"] = pd.array([pd.NA] * len(findings), dtype="string")
+    assert (CASE, "liver", "CPL") in ra.related_units(findings, "pigment_unspecified")
     findings.loc[findings["semantic_group"] == "pigment_unspecified", "mod_polarizable"] = "no"
     assert (CASE, "liver", "CPL") not in ra.related_units(findings, "pigment_unspecified")
     assert ra.quality_units(findings) == {(CASE, "liver", "CPL")}

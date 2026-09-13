@@ -84,7 +84,10 @@ def related_units(findings, related):
         rows = fibrin[quotes.map(lambda q: bool(_FIBRIN_LINING.search(q)))]
     elif related == "pigment_unspecified":
         pigment = rows[rows["semantic_group"] == related]
-        rows = pigment[pigment.get("mod_polarizable", pd.Series(index=pigment.index)) != "no"]
+        # An unstated value is empty text, so it counts as not "no" (a missing value would
+        # compare as unknown and drop the record).
+        polarizable = pigment.get("mod_polarizable", pd.Series("", index=pigment.index))
+        rows = pigment[polarizable.fillna("") != "no"]
     else:
         rows = rows[rows["semantic_group"] == related]
     return set(map(tuple, rows[UNIT].values))
