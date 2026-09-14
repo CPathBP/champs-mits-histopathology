@@ -1,0 +1,15 @@
+# MamMIL: bidirectional state-space blocks over the tiles in scan order.
+# Needs the CUDA kernels of `make env-gpu`.
+architecture:
+  hidden_dim: 512
+  num_mamba_layers: 2
+  d_state: 16
+  d_conv: 4
+  expand: 2
+  dropout: 0.25
+  use_instance_aggregation: true
+weight_decay: 5.0e-4
+warmup_epochs: 2
+instance_dropout: 0.25
+# Chosen on a three-rate grid by validation macro average precision in preliminary tuning.
+learning_rate: 1.0e-4

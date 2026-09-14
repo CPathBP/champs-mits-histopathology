@@ -1,0 +1,9 @@
+# Mean pooling of projected tiles: the low-capacity reference.
+architecture:
+  hidden_dim: 256
+  dropout: 0.25
+weight_decay: 5.0e-4
+warmup_epochs: 2
+instance_dropout: 0.25
+# Chosen on a three-rate grid by validation macro average precision in preliminary tuning.
+learning_rate: 5.0e-4

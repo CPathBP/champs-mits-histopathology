@@ -25,6 +25,10 @@ dependencies = [
     "jinja2",
     "requests",
     "matplotlib",
+    "pytorch_lightning",
+    "torchmetrics",
+    "pylance",
+    "nystrom-attention",
 ]
 
 [tool.setuptools.packages.find]

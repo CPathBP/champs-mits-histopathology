@@ -1,0 +1,14 @@
+# ACMIL, gated attention with one branch per finding. Top-tile masking and the
+# diversity loss of the original method are off.
+architecture:
+  hidden_dim: 512
+  attention_dim: 256
+  dropout: 0.25
+  n_masked_patch: 0
+  mask_drop: 0.6
+  diversity_weight: 0.0
+weight_decay: 5.0e-4
+warmup_epochs: 2
+instance_dropout: 0.25
+# Chosen on a three-rate grid by validation macro average precision in preliminary tuning.
+learning_rate: 5.0e-5

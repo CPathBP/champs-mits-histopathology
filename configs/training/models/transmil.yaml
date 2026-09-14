@@ -1,0 +1,13 @@
+# TransMIL: Nystrom self-attention over the tiles in scan order.
+architecture:
+  d_model: 512
+  nhead: 8
+  num_layers: 4
+  dim_feedforward: 2048
+  dropout: 0.2
+  use_positional_encoding: true
+weight_decay: 5.0e-4
+warmup_epochs: 2
+instance_dropout: 0.25
+# Chosen on a three-rate grid by validation macro average precision in preliminary tuning.
+learning_rate: 1.0e-4

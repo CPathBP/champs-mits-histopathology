@@ -111,5 +111,52 @@ case positives and their interaction, slide count; seed 42): five outer
 folds of two test microfolds and one validation microfold, and one fold
 per site with a validation tenth of the other sites' cases.
 
-The later parts (training, inference, evaluation, reader study,
-manuscript) are added here as they are released.
+## 4. Training
+
+From the fold manifests and the feature stores to one trained model per
+run of the training matrix. `RUNS` is the directory of the run
+directories. Every training run needs one GPU; MamMIL needs the kernels of
+`make env-gpu`.
+
+| Step | Command | Output |
+|---|---|---|
+| Matrix | `python scripts/training/expand_matrix.py --folds-dir $ART/folds/fold_csvs --out $ART/training_matrix.csv` | one row per run of `configs/training/matrix.yaml`: run id, families, organ, label variant, fold design, fold, encoder, aggregator, learning rate, training fraction, seed |
+| Train, *GPU*, *per run* | `python scripts/training/train.py --matrix $ART/training_matrix.csv --run-id <run_id> --folds-dir $ART/folds/fold_csvs --runs-dir $RUNS` | `<run_id>/` with `run.json` (identity, commit, status, selected checkpoint), `config.json`, `label_mapping.json`, `data_counts.json`, `metrics.csv`, `hparams.yaml`, `checkpoints/` |
+| Registry | `python scripts/training/build_run_registry.py --matrix $ART/training_matrix.csv --runs-dir $RUNS --out $ART/run_registry.csv --require-complete` | the matrix rows with their status, commit, job, epochs and selected checkpoint |
+
+Before a run starts, the data module refuses a fold manifest whose labels
+and masks contradict each other, an encoder without features for more than
+5% of a split's slides, and a training or validation split without a kept
+positive and a kept negative for every finding. A complete run is kept when
+its matrix row and the hashes of its fold manifest and configurations are
+unchanged, and refused otherwise. An attempt that did not complete, and
+whose job is no longer queued, is moved under `$RUNS/.attempts/` and the run
+trains again, which is what a requeued job does. A run records a dirty tree
+when tracked files changed or untracked files exist under `src/`,
+`scripts/`, `configs/` or `env/`.
+
+The families: the headline models (CLAM-MB on Virchow2 features, lung and
+liver, five-fold); the site-held-out models (lung and liver); the
+aggregator comparison (six aggregators, lung); the encoder comparison
+(CLAM-MB on five further encoders, lung); the learning curve (six training
+fractions, lung and liver); and the raw label variant (lung).
+
+Settings as run. Every slide is one bag of tile features. The heads are
+the selection findings of the organ (five lung findings, two liver
+findings), and a label cell whose mask is 0 enters neither the loss nor the
+metrics. The loss is binary cross-entropy per finding averaged over the
+kept cells of a step, with a positive weight per finding of kept negatives
+over kept positives in the training split, capped at 100. Four slides per
+optimizer step, 25% of the tiles of each training bag dropped at random,
+AdamW with weight decay 5e-4, a linear warm-up over two epochs from 1% of
+the learning rate into a cosine decay to 1e-6, gradient norm clipped at
+1.0, mixed precision. Training runs at most 30 epochs and stops after five
+validation epochs without a higher macro average precision over the
+selection findings; the checkpoint with the highest value is the run's
+model. Every run uses the fixed learning rate of its aggregator's model
+configuration and seed 42. A learning-curve run keeps a nested,
+prevalence-preserving fraction of the training cases; the validation and
+test splits are never subsampled.
+
+The later parts (inference, evaluation, reader study, manuscript) are
+added here as they are released.

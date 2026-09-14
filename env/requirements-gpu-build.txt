@@ -1,3 +1,4 @@
 # CUDA extensions compiled at install time; needed for the MamMIL aggregator only.
 # Install on a machine with nvcc after requirements.lock: pip install --no-deps -r requirements-gpu-build.txt
+causal-conv1d==1.6.2.post1
 mamba-ssm==2.3.2.post1

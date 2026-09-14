@@ -1,0 +1,32 @@
+# The runs the paper reports, grouped in families.
+#
+# Each family lists the axes it varies; an axis it does not list takes the
+# default. A family runs every combination of its axes on every fold of its
+# fold design. A run that two families share is trained once and belongs to
+# both. The learning rate of a run is the one in its aggregator's model
+# configuration.
+
+defaults:
+  organ: lung
+  variant: elig
+  design: fivefold
+  encoder: virchow2
+  aggregator: clam_mb
+  train_fraction: 1.0
+  seed: 42
+
+families:
+  headline:
+    organ: [lung, liver]
+  site_held_out:
+    organ: [lung, liver]
+    design: [loso_nested]
+  aggregator_comparison:
+    aggregator: [meanpool, abmil, clam_mb, acmil, transmil, mammil]
+  encoder_comparison:
+    encoder: [uni_v2, conch_v15, hoptimus0, hoptimus1, champs_mits]
+  learning_curve:
+    organ: [lung, liver]
+    train_fraction: [0.10, 0.20, 0.35, 0.55, 0.75, 1.00]
+  raw_labels:
+    variant: [raw]

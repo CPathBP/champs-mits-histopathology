@@ -1,0 +1,10 @@
+# ABMIL: one gated attention shared by all findings.
+architecture:
+  hidden_dim: 256
+  attention_dim: 128
+  dropout: 0.25
+weight_decay: 5.0e-4
+warmup_epochs: 2
+instance_dropout: 0.25
+# Chosen on a three-rate grid by validation macro average precision in preliminary tuning.
+learning_rate: 1.0e-4
