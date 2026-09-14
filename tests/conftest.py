@@ -3,7 +3,7 @@ from pathlib import Path
 
 # The scripts are plain files; make them importable by module name.
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
-for group in ("slides", "reports"):
+for group in ("slides", "reports", "cohort"):
     sys.path.insert(0, str(SCRIPTS / group))
 
 import pytest

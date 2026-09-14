@@ -20,6 +20,7 @@ C1_LEFT_CPL = "2019-0001-A_HE_KEAA00001_M00001.045"
 C1_LIVER_CPL = "2019-0001-B_HE_KEAA00001_M00001.041"
 C2_RIGHT_SITE = "M00002.043_KEAA00002"
 C3_RIGHT_CPL = "2019-0003-A_HE_KEAA00003_M00003.043"
+C3_LEFT_CPL = "2019-0003-B_HE_KEAA00003_M00003.045"
 
 
 def record(case, organ, text_source, finding, kind="condition", **extra):
@@ -44,6 +45,7 @@ def findings():
         record("C2", "right_lung", "site_report", "pneumonitis"),
         record("C2", "liver", "cpl_slides", "not_performed", kind="quality"),
         record("C3", "right_lung", "cpl_slides", "inadequate_for_dx", kind="quality"),
+        record("C3", "left_lung", "cpl_slides", "out_of_focus", kind="quality"),
         record("C3", "liver", "cpl_slides", "fibrin", finding_examples="fibrin lining the alveoli"),
     ])
 
@@ -64,6 +66,7 @@ def inventory():
         slide("M00001.UKN_KEAA00001", "KEAA00001"),                     # no tissue code
         slide(C2_RIGHT_SITE, "KEAA00002"),                              # site report only
         slide(C3_RIGHT_CPL, "KEAA00003"),                               # inadequate
+        slide(C3_LEFT_CPL, "KEAA00003"),                                # out of focus only
         slide("M00004.043_KEAA00004", "KEAA00004"),                     # no case mapping
         slide(C1_LIVER_CPL, "KEAA00009"),                               # a copy under another case
         slide("M00001.041 - 2023-01-05 10.00.00", "KEAA00001"),         # an earlier scan
@@ -125,8 +128,10 @@ def test_funnel_drops_each_slide_once_with_its_stage(built):
     assert stage["M00001.043.GM"] == "not_he_by_name"
     assert stage["M00001.041 - 2023-01-05 10.00.00"] == "older_scan"
     assert stage[C2_RIGHT_SITE] == "no_cpl_authored_record"
-    assert stage[C3_RIGHT_CPL] == "quality_flags_only"
-    assert boxes[0]["n"] == 12 and boxes[-1]["n"] == 4
+    # A description with the inadequate flag and nothing else counts as inadequate.
+    assert stage[C3_RIGHT_CPL] == "inadequate_for_dx"
+    assert stage[C3_LEFT_CPL] == "quality_flags_only"
+    assert boxes[0]["n"] == 13 and boxes[-1]["n"] == 4
     assert "M00001.041 - 2024-02-06 11.00.00" not in set(dropped["slide_id"])
 
 
@@ -176,7 +181,32 @@ def test_related_and_quality_units(findings):
     assert (CASE, "liver", "CPL") in ra.related_units(findings, "pigment_unspecified")
     findings.loc[findings["semantic_group"] == "pigment_unspecified", "mod_polarizable"] = "no"
     assert (CASE, "liver", "CPL") not in ra.related_units(findings, "pigment_unspecified")
-    assert ra.quality_units(findings) == {(CASE, "liver", "CPL")}
+    assert ra.quality_units(findings) == {(CASE, "liver", "CPL"), ("C3", "left_lung", "CPL")}
+
+
+def test_finding_supply_counts_cases_with_a_positive_training_slide():
+    import render_finding_burden
+
+    unit = {"finding": "steatosis", "status": "positive"}
+    reference = pd.DataFrame([
+        {"champs_deid": "A", "organ": "liver", "slide_source": "CPL", **unit},
+        {"champs_deid": "B", "organ": "liver", "slide_source": "SITE", **unit},
+    ])
+    # Case B has a training slide, but of the lung; its positive liver slide is linked only.
+    cohort = pd.DataFrame([
+        {"champs_deid": "A", "organ": "liver", "slide_source": "CPL", "linked": True,
+         "training": True},
+        {"champs_deid": "B", "organ": "right_lung", "slide_source": "SITE", "linked": True,
+         "training": True},
+        {"champs_deid": "B", "organ": "liver", "slide_source": "SITE", "linked": True,
+         "training": False},
+    ])
+    cases = pd.DataFrame({"champs_deid": ["A", "B"], "examined": [True, True]})
+    groups = {"liver": "liver", "right_lung": "lung"}
+    supply = render_finding_burden.finding_supply(reference, cohort, cases, groups)
+    row = supply.set_index("finding").loc["steatosis"]
+    assert row["positive_cases"] == 2 and row["units_with_linked_slide"] == 2
+    assert row["cases_with_positive_training_slide"] == 1
 
 
 def test_manifest_join(built, findings, schema_v45):

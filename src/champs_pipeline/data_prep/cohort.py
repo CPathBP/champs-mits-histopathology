@@ -188,12 +188,13 @@ def build_cohort(slides, index, stain_scores, findings, encoders, cohort_encoder
     unit_flag = flags.reindex(pd.MultiIndex.from_frame(funnel.slides[UNIT]))
     funnel.drop("no_cpl_authored_record", unit_flag.index.isin(flags.index),
                 "no record from the central laboratory's own description")
-    unit_flag = flags.reindex(pd.MultiIndex.from_frame(funnel.slides[UNIT]))
-    funnel.drop("quality_flags_only", unit_flag["supervisable"].to_numpy(),
-                "the description carries quality flags only")
+    # Inadequacy is counted before the missing content, so every inadequate sample is one box.
     unit_flag = flags.reindex(pd.MultiIndex.from_frame(funnel.slides[UNIT]))
     funnel.drop("inadequate_for_dx", ~unit_flag["inadequate"].to_numpy(),
                 "the description flags the sample as inadequate for diagnosis")
+    unit_flag = flags.reindex(pd.MultiIndex.from_frame(funnel.slides[UNIT]))
+    funnel.drop("quality_flags_only", unit_flag["supervisable"].to_numpy(),
+                "no finding or negation from the central laboratory's description")
     usable = usable_files(index, cohort_encoder, encoders[cohort_encoder])
     funnel.drop("no_usable_feature_file", funnel.slides["slide_id"].isin(set(usable["slide_id"])),
                 f"no correctly scaled {cohort_encoder} feature file")

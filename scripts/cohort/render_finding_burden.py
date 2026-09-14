@@ -3,7 +3,7 @@
 ``finding_supply.csv``: per study finding, the positive cases and their
 share of the examined cases, the positive units, the positive units
 with a linked slide and with a training slide, and the cases with at
-least one training slide. ``candidate_table.csv``: every finding the
+least one positive unit that has a training slide. ``candidate_table.csv``: every finding the
 central laboratory's descriptions record at least ten times in the
 lungs or the liver, with its case prevalence, the share of records that
 carry a severity, and the cause-of-death conditions the curated map
@@ -33,7 +33,6 @@ def finding_supply(reference, cohort, cases, organ_groups):
     n_examined = int(cases["examined"].sum())
     linked = set(map(tuple, cohort.loc[cohort["linked"], UNIT].values))
     training = set(map(tuple, cohort.loc[cohort["training"], UNIT].values))
-    training_cases = set(cohort.loc[cohort["training"], "champs_deid"])
     rows = []
     for finding, organ_group in STUDY_FINDINGS.items():
         units = positive[(positive["finding"] == finding)
@@ -46,7 +45,7 @@ def finding_supply(reference, cohort, cases, organ_groups):
             "positive_units": len(units),
             "units_with_linked_slide": sum(k in linked for k in keys),
             "units_with_training_slide": sum(k in training for k in keys),
-            "cases_with_training_slide": len(set(units["champs_deid"]) & training_cases),
+            "cases_with_positive_training_slide": len({key[0] for key in keys if key in training}),
         })
     return pd.DataFrame(rows)
 
