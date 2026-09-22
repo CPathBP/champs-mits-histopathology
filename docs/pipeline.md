@@ -82,7 +82,7 @@ mapping, `STORE` the directory of the feature stores.
 | Feature store, *per encoder* | `python scripts/cohort/build_feature_store.py --cohort-slides $ART/cohort/cohort_slides.csv --encoder virchow2 --out-dir $STORE` | `<encoder>.lance` and `lance_index_<encoder>.csv` (the dataset row of every training slide) |
 | Manifests | `python scripts/cohort/build_manifests.py --cohort-dir $ART/cohort --reference-dir $ART/reference_a --findings $ART/findings.parquet --schema <schema> --config configs/cohort/lung.yaml --config configs/cohort/liver.yaml --encoders configs/cohort/encoders.yaml --lance-dir $STORE --out-dir $ART/manifests` | `manifest_<organ>_<variant>.csv`, one row per training slide with the label, mask, severity, extent, modifier and flag columns, the feature paths and store rows of every encoder, and the demographics |
 | Folds | `python scripts/cohort/build_folds.py --manifest-dir $ART/manifests --config configs/cohort/lung.yaml --config configs/cohort/liver.yaml --out-dir $ART/folds --seed 42` | `case_splits.csv` (organ, design, fold, case, split), `fold_csvs/<organ>_<variant>_<design>/fold_<k>.csv` (the manifest with a split column), `gate_table.csv` and `gate_report.md` (class counts per fold and label with a pass, warn or fail status) |
-| Tables | `python scripts/cohort/render_funnel.py --cohort-dir $ART/cohort --out-dir $ART/tables`; `python scripts/cohort/render_table1.py --cohort-dir $ART/cohort --out-dir $ART/tables`; `python scripts/cohort/render_finding_burden.py --reference-dir $ART/reference_a --cohort-dir $ART/cohort --decode-map configs/cohort/decode_histology_map.csv --config configs/cohort/lung.yaml --config configs/cohort/liver.yaml --out-dir $ART/tables` | the funnel tables and figure, Table 1 (full and compact), the finding supply and the candidate table, each a read of the cohort artifacts |
+| Tables | `python scripts/cohort/render_funnel.py --cohort-dir $ART/cohort --out-dir $ART/tables`; `python scripts/cohort/render_table1.py --cohort-dir $ART/cohort --out-dir $ART/tables`; `python scripts/cohort/render_finding_burden.py --reference-dir $ART/reference_a --cohort-dir $ART/cohort --decode-map configs/cohort/decode_histology_map.csv --decode $L2/CHAMPS_deid_decode_results.csv --icd-descriptions $L2/CHAMPS_icd_descriptions.csv --icd11-correspondence configs/cohort/icd11_to_icd10.csv --config configs/cohort/lung.yaml --config configs/cohort/liver.yaml --out-dir $ART/tables` | the funnel tables and figure, Table 1 (full and compact), the finding supply, the candidate table with the selection criteria, and `cause_codes.csv` (the causal-chain codes matched by each row of the cause-of-death map) |
 
 Rules as run. A slide enters the linked cohort when its name carries no
 stain token and a lung or liver tissue code, its study id maps to a case
@@ -110,6 +110,16 @@ share one balanced assignment of cases to ten microfolds (site, per-finding
 case positives and their interaction, slide count; seed 42): five outer
 folds of two test microfolds and one validation microfold, and one fold
 per site with a validation tenth of the other sites' cases.
+
+A finding is selected for the study when at least 250 examined cases are
+positive for it in Reference A, and when a cause of death that
+`decode_histology_map.csv` ties to its histology, at the primary or the
+contributing tier, occurs in the causal chain (underlying cause, immediate
+cause, morbid conditions 1 to 8) of at least 1% of the examined cases with a
+DeCoDe record. Chain codes are matched as ICD-10; ICD-11 codes are read
+through `icd11_to_icd10.csv` or, failing that, through an identical
+description in the release's ICD table. The renderer stops when the
+selected findings differ from the study findings.
 
 ## 4. Training
 

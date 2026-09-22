@@ -134,6 +134,7 @@ digests so that a holder of the same release can verify identity with
 | `level-2-deidentified-data/CHAMPS_de_identified_data/CHAMPS_deid_decode_results.csv` | 8,619 | `b5e80e404eb6b5dc` |
 | `level-2-deidentified-data/CHAMPS_de_identified_data/CHAMPS_deid_tac_results.csv` | 8,491 | `9eaa24d4eeadc7f9` |
 | `level-2-deidentified-data/CHAMPS_de_identified_data/CHAMPS_deid_lab_results.csv` | 9,229 | `ab27e7b06ae6a0c7` |
+| `level-2-deidentified-data/CHAMPS_de_identified_data/CHAMPS_icd_descriptions.csv` | 20,053 | `8eb3667faf359dd1` |
 | `champs_deid_studyid_mapping.csv` | 8,980 | `109542a933764833` |
 
 Whole-slide images are held in the CHAMPS archive under `DATA_ROOT/<site>/`.

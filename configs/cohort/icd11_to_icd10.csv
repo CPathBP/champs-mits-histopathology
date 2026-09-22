@@ -1,0 +1,24 @@
+icd11_code,icd10_code,icd11_title
+KA60,P36,Sepsis of foetus or newborn
+1G40,A41.9,Sepsis without septic shock
+1G41,A41.9,Sepsis with septic shock
+CA40,J18,Pneumonia
+CA40.Z,J18,Pneumonia
+CA40.Y,J18,Pneumonia
+CA40.0Y,J18,Pneumonia
+CA40.0Z,J18,Pneumonia
+CA40.03,J18,Pneumonia
+CA40.07,J13,Pneumonia due to Streptococcus pneumoniae
+CA40.05,J15.1,Pneumonia due to Pseudomonas aeruginosa
+CA40.11,J12.1,Pneumonia due to Respiratory syncytial virus
+CA40.20,B59,Pneumonia due to pneumocystis
+CA71.0,J69.0,Pneumonitis due to inhalation of food or vomit
+KB23.0Z,P22.0,Respiratory distress of newborn
+KB23.0Y,P22.0,Respiratory distress of newborn
+KB26.Z,P24.9,Neonatal aspiration syndromes
+1F40,B50.9,Malaria due to Plasmodium falciparum
+1F40.Y,B50.9,Malaria due to Plasmodium falciparum
+1F40.Z,B50.9,Malaria due to Plasmodium falciparum
+1F4Z,B54,"Malaria, unspecified"
+KA64.1,P37.3,Congenital falciparum malaria
+KA62.8,P35.0,Congenital rubella syndrome
