@@ -34,5 +34,8 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"champs_pipeline.figures" = ["fonts/*.ttf", "fonts/OFL.txt"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

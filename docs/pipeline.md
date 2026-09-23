@@ -192,5 +192,99 @@ checker compares the table cell by cell with the cells of the registry, the
 head mappings and the fold manifests, and compares the input hashes in the
 record with the current inputs. The evaluation uses the test rows only.
 
-The later parts (evaluation, reader study, manuscript) are added here
-as they are released.
+## 6. Evaluation and manuscript displays
+
+From the checked predictions, Reference A and the cohort tables to the
+tables and figures of the manuscript. `RUNS` is the directory of the run
+directories. No step needs a GPU.
+
+Each display is written to `manuscript/<name>/`. The name tells whether the
+display belongs to the main text (`main_`) or to the supplementary
+information (`supplementary_`). A display is written with the numbers it
+shows (a figure with its source data as CSV, a table as CSV) and with
+`<name>.provenance.json`: the command, the commit, whether the working tree
+differed from the commit, whether the display is a draft, and the SHA-256 of
+every input. A figure follows the figure requirements of npj Digital
+Medicine: Arimo at 8 pt, lines of at least 1 pt, a width of at most 180 mm,
+PDF and PNG at 300 dpi. A figure is not written when it violates a
+requirement, or when text leaves the figure, overlaps other text or covers
+the data. A table is written as the body of a LaTeX `tabular` (a `longtable`
+when it runs over several pages) and as CSV; the manuscript supplies the
+caption and the notes, and needs the `booktabs`, `array` and `longtable`
+packages.
+
+A display reads the predictions only after it checks them against the
+complete inference record of a clean commit. To render a draft from
+predictions without that record, add `--draft`: the predictions must still
+agree with the prediction contract, and the provenance record then shows
+`"draft": true`.
+
+Displays of the cohort:
+
+| Display | Command | Output |
+|---|---|---|
+| Cohort characteristics, and the full table with the linked cohort and the slide counts | `python scripts/manuscript/main_table_cohort.py --cohort-dir $ART/cohort --finding-supply $ART/tables/finding_supply.csv --out-dir manuscript` | `main_table_cohort`, `supplementary_table_cohort` |
+| Candidate findings and the selection | `python scripts/manuscript/supplementary_table_candidate_findings.py --candidate-table $ART/tables/candidate_table.csv --out-dir manuscript` | `supplementary_table_candidate_findings` |
+| Reference A per finding | `python scripts/manuscript/supplementary_tables_reference_a.py --reference-slides $ART/reference_a/reference_a_slide.parquet --out-dir manuscript` | `supplementary_table_reference_a_labels`, `supplementary_table_reference_a_grades` |
+| Study cohort per site | `python scripts/manuscript/supplementary_table_sites.py --cohort-dir $ART/cohort --reference-slides $ART/reference_a/reference_a_slide.parquet --out-dir manuscript` | `supplementary_table_sites` |
+| Selection of cases and slides | `python scripts/manuscript/supplementary_figure_cohort_flow.py --funnel $ART/cohort/funnel.json --out-dir manuscript` | `supplementary_figure_cohort_flow` |
+| Study overview | `python scripts/manuscript/main_figure_overview.py --cohort-dir $ART/cohort --reference-slides $ART/reference_a/reference_a_slide.parquet --findings $ART/findings.parquet --case-splits $ART/folds/case_splits.csv --training-configs configs/training --slide-root $DATA_ROOT --out-dir manuscript` | `main_figure_overview` |
+
+Displays of the evaluation:
+
+| Display | Command | Output |
+|---|---|---|
+| Discrimination against Reference A, with the difference from the context baseline | `python scripts/manuscript/main_table_discrimination.py --predictions $ART/predictions.parquet --reference-slides $ART/reference_a/reference_a_slide.parquet --cohort-dir $ART/cohort --folds-dir $ART/folds/fold_csvs --out-dir manuscript` | `main_table_discrimination` |
+| Context baseline, raw labels, and every test fold | `python scripts/manuscript/supplementary_tables_discrimination.py --predictions $ART/predictions.parquet --reference-slides $ART/reference_a/reference_a_slide.parquet --cohort-dir $ART/cohort --folds-dir $ART/folds/fold_csvs --out-dir manuscript` | `supplementary_table_discrimination_baseline`, `supplementary_table_discrimination_raw_labels`, `supplementary_table_discrimination_folds` |
+| Scores by Reference A status and grade | `python scripts/manuscript/main_figure_scores_by_grade.py --predictions $ART/predictions.parquet --reference-slides $ART/reference_a/reference_a_slide.parquet --folds-dir $ART/folds/fold_csvs --out-dir manuscript` | `main_figure_scores_by_grade` |
+| Discrimination by recorded grade | `python scripts/manuscript/supplementary_figure_discrimination_by_grade.py --predictions $ART/predictions.parquet --reference-slides $ART/reference_a/reference_a_slide.parquet --folds-dir $ART/folds/fold_csvs --out-dir manuscript` | `supplementary_figure_discrimination_by_grade` |
+| ROC curves of every test fold | `python scripts/manuscript/supplementary_figure_roc_curves.py --predictions $ART/predictions.parquet --reference-slides $ART/reference_a/reference_a_slide.parquet --folds-dir $ART/folds/fold_csvs --out-dir manuscript` | `supplementary_figure_roc_curves` |
+| Discrimination with each site held out | `python scripts/manuscript/main_figure_site_transportability.py --predictions $ART/predictions.parquet --cohort-slides $ART/cohort/cohort_slides.csv --folds-dir $ART/folds/fold_csvs --out-dir manuscript` | `main_figure_site_transportability`, `supplementary_table_site_transportability`, `supplementary_table_site_average_comparison`, `supplementary_table_site_comparison` |
+| Aggregators, encoders and training-set size | `python scripts/manuscript/main_figure_modelling_choices.py --predictions $ART/predictions.parquet --reference-slides $ART/reference_a/reference_a_slide.parquet --folds-dir $ART/folds/fold_csvs --runs-dir $RUNS --out-dir manuscript` | `main_figure_modelling_choices`, `supplementary_table_aggregators`, `supplementary_table_encoders`, `supplementary_table_learning_curve` |
+| Learning curves of every finding | `python scripts/manuscript/supplementary_figure_learning_curves.py --predictions $ART/predictions.parquet --reference-slides $ART/reference_a/reference_a_slide.parquet --folds-dir $ART/folds/fold_csvs --runs-dir $RUNS --out-dir manuscript` | `supplementary_figure_learning_curves` |
+| Learning curves against the positive training slides | `python scripts/manuscript/supplementary_figure_learning_curve_cases.py --predictions $ART/predictions.parquet --reference-slides $ART/reference_a/reference_a_slide.parquet --folds-dir $ART/folds/fold_csvs --runs-dir $RUNS --out-dir manuscript` | `supplementary_figure_learning_curve_cases` |
+| Discrimination within age groups, scan sources, tissue amounts and post-mortem intervals | `python scripts/manuscript/main_figure_strata.py --predictions $ART/predictions.parquet --reference-slides $ART/reference_a/reference_a_slide.parquet --cohort-dir $ART/cohort --folds-dir $ART/folds/fold_csvs --out-dir manuscript` | `main_figure_strata`, `supplementary_table_strata`, `supplementary_table_strata_adjusted` |
+| Discrimination within sites and years of death | `python scripts/manuscript/supplementary_figure_strata.py --predictions $ART/predictions.parquet --reference-slides $ART/reference_a/reference_a_slide.parquet --cohort-dir $ART/cohort --folds-dir $ART/folds/fold_csvs --out-dir manuscript` | `supplementary_figure_strata` |
+
+Rules as run. Every evaluation reads the test rows of the predictions only,
+and a cell whose mask is 0 is left out for that finding. The headline model
+is CLAM-MB on Virchow2 features, five-fold, with the corrected labels.
+
+- Discrimination: AUROC, AP and prevalence per finding in every test fold,
+  summarized as the mean and the sample SD over the folds (`--summary t`:
+  the mean with a 95% t interval). The macro average of an organ gives each
+  finding equal weight within a fold.
+- Severity: each grade group against the report-negative slides of the same
+  fold. Severe and extensive form one group; a positive slide without a grade
+  forms its own group.
+- Context baseline: an L2-regularized logistic regression per finding and
+  fold, fitted on the training slides, on site, scan source, scanner
+  magnification, death category, age in months, post-mortem interval, year
+  of death and the logarithm of the Virchow2 tile count. Imputation, encoding
+  and scaling are fitted on the training slides only.
+- Raw labels: the same predictions against the raw labels, without
+  retraining.
+- Site transfer: site-held-out and five-fold predictions on their common
+  eligible slides. AUROC and AP per site; the site average gives equal weight
+  to each site with at least 10 positive and 10 negative slides for the
+  finding; the pooled estimate over all slides is a sensitivity analysis.
+- Modelling choices: each aggregator on Virchow2 features minus CLAM-MB, and
+  each encoder with CLAM-MB minus Virchow2, on the pooled predictions of the
+  slides that both score. The learning curve gives the mean and SD over folds
+  at each training fraction, with the training counts that each run records
+  in `data_counts.json`.
+- Strata: AUROC and AP from the predictions pooled over folds within age
+  groups, scan sources, tertiles of the Virchow2 tile count among the
+  training-cohort slides of the organ, and post-mortem intervals of at most 6,
+  more than 6 to 24, and more than 24 hours; sites and years of death in the
+  supplement. A level needs at least 10 positive and 10 negative slides. The
+  covariate-adjusted AUROC averages the AUROC within levels, weighted by the
+  share of positive slides in each level; the prevalence-only AUROC scores
+  each slide with the prevalence of its level.
+- Intervals: 95% percentile intervals from 1,000 case-clustered bootstrap
+  resamples (`--bootstrap`) with seed 20260916 (`--seed`). A resample keeps
+  every slide of a drawn case. A paired comparison uses the same draws for
+  both sides; a site comparison draws cases within each site.
+
+The later parts (reader study, manuscript evidence) are added here as they
+are released.

@@ -112,6 +112,13 @@ engine build, the context length, the output cap, the decoding constraint,
 and a fingerprint of the rendered prompt; a repeat of one shard under the
 same settings measures the agreement.
 
+## Figures
+
+Figures are set in Arimo (`googlefonts/arimo`, commit `4a6255f2`, SIL Open
+Font License 1.1), a typeface metrically compatible with Arial, which the
+journal specifies for figure lettering. The regular and bold font files and
+the licence are included in `src/champs_pipeline/figures/fonts/`.
+
 ## Data
 
 ### Restricted primary data

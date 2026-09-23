@@ -1,7 +1,6 @@
 """Selected-checkpoint routing, source guards and artifact completeness on toy data."""
 
 import json
-from pathlib import Path
 
 import lance
 import numpy as np
@@ -12,8 +11,7 @@ import torch
 import yaml
 
 from champs_pipeline.eval import inference, load
-from champs_pipeline.eval.predictions import (CELL_COLUMNS, check_cells, select_test_runs,
-                                              validate_predictions, check_test_folds)
+from champs_pipeline.eval.predictions import check_cells, validate_predictions
 from champs_pipeline.models.mil.module import MILModule
 
 
