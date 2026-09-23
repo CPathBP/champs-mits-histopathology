@@ -17,13 +17,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from champs_pipeline.eval.discrimination import (macro_fold_metrics, metric_value,
+from champs_pipeline.eval.discrimination import (METRICS, macro_fold_metrics, metric_value,
                                                  per_fold_metrics, summarise_metrics)
 from champs_pipeline.eval.predictions import check_test_folds
 from champs_pipeline.figures.labels import FINDINGS
 
 
-METRICS = ("auroc", "average_precision")
 # The run axis that distinguishes the variants of each comparison family.
 VARIANT_AXES = {
     "aggregator_comparison": "aggregator",

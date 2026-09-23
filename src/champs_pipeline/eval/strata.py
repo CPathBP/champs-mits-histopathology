@@ -14,7 +14,7 @@ from functools import partial
 import numpy as np
 import pandas as pd
 
-from champs_pipeline.eval.discrimination import metric_value
+from champs_pipeline.eval.discrimination import METRICS, metric_value
 from champs_pipeline.figures.labels import SITES, SLIDE_SOURCES, site_code
 
 
@@ -45,8 +45,6 @@ STRATA = {
     "site": ("Site", list(SITES)),
     "year_of_death": ("Year of death", [*YEAR_BANDS, NOT_RECORDED]),
 }
-# A tuple, not a set: the order fixes the columns and the sequence of bootstrap draws.
-METRICS = ("auroc", "average_precision")
 ADJUSTED_ESTIMATES = ("pooled_auroc", "adjusted_auroc", "difference_auroc", "prevalence_auroc")
 SLIDE_COLUMNS = ["slide_id", "champs_deid", "organ_group", "site", "slide_source",
                  "n_patches_virchow2"]

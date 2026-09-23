@@ -13,14 +13,13 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from champs_pipeline.eval.discrimination import metric_value
+from champs_pipeline.eval.discrimination import METRICS, metric_value
 
 
 REQUIRED_COLUMNS = {
     "organ_group", "finding", "slide_id", "case_id", "site", "label",
     "fivefold_score", "site_held_out_score",
 }
-METRICS = ("auroc", "average_precision")
 
 
 def validate_paired_predictions(frame):

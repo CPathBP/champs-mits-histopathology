@@ -10,7 +10,8 @@ from champs_pipeline.eval import inference
 from champs_pipeline.eval.discrimination import (grade_groups, macro_fold_metrics,
                                                 metric_value, model_baseline_difference,
                                                 non_image_baseline, per_grade_metrics,
-                                                scored_slides, summary_over_folds)
+                                                scored_slides, summarise_metrics,
+                                                summary_over_folds)
 from champs_pipeline.eval.display_data import display_inputs
 from champs_pipeline.eval.predictions import check_test_folds, select_test_runs
 from champs_pipeline.eval.transportability import (paired_test_predictions, per_site_metrics,
@@ -36,6 +37,16 @@ def test_summary_over_folds_can_use_student_t_interval():
     assert summary["n_folds"] == 5
     assert np.isclose(summary["ci_low"], 0.6037, atol=1e-4)
     assert np.isclose(summary["ci_high"], 0.9963, atol=1e-4)
+
+
+def test_summarise_metrics_orders_columns_the_same_in_every_process():
+    """AUROC columns come before AP columns, whatever the process's hash seed."""
+    scored = pd.DataFrame({"organ_group": "liver", "finding": ["steatosis"] * 4
+                           + ["hemozoin_pigment"] * 4, "fold": [0, 0, 1, 1] * 2,
+                           "label": [0, 1] * 4, "score": [0.2, 0.8] * 4})
+    summary, _, _ = summarise_metrics(scored)
+    columns = [column for column in summary.columns if column.endswith("_mean")]
+    assert columns == ["auroc_mean", "average_precision_mean"]
 
 
 def test_summary_over_folds_refuses_other_methods():

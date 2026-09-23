@@ -27,7 +27,8 @@ GRADE_LABELS = {
     "moderate": "Moderate", "severe or extensive": "Severe or extensive",
     "not graded": "Not graded",
 }
-METRICS = {"auroc", "average_precision"}
+# A list, not a set: the order fixes the output columns and the sequence of bootstrap draws.
+METRICS = ["auroc", "average_precision"]
 NUMERIC_FEATURES = ["age_months_total", "calc_postmortem_hrs", "death_year",
                     "n_patches_virchow2"]
 CATEGORICAL_FEATURES = ["site", "slide_source", "scanner_power", "death_category"]
