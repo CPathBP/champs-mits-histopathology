@@ -168,5 +168,29 @@ configuration and seed 42. A learning-curve run keeps a nested,
 prevalence-preserving fraction of the training cases; the validation and
 test splits are never subsampled.
 
-The later parts (inference, evaluation, reader study, manuscript) are
-added here as they are released.
+## 5. Inference
+
+From the trained runs to one table of scores. Inference needs one GPU;
+MamMIL needs the kernels of `make env-gpu`.
+
+| Step | Command | Output |
+|---|---|---|
+| Preflight | `python scripts/inference/predict.py --registry $ART/run_registry.csv --matrix $ART/training_matrix.csv --runs-dir $RUNS --folds-dir $ART/folds/fold_csvs --out $ART/predictions.parquet --preflight` | no file; the checks below for every run, without a GPU |
+| Predict, *GPU* | `python scripts/inference/predict.py --registry $ART/run_registry.csv --matrix $ART/training_matrix.csv --runs-dir $RUNS --folds-dir $ART/folds/fold_csvs --out $ART/predictions.parquet --device cuda` | `predictions.parquet`, one row per run, split, slide and finding: the run axes, the case, the Reference A label and mask, the probability (`score`) and the logit; `predictions.json`, the inference record: the source commit, the environment, the settings, the hash of every input and the hash of the table |
+| Check | `python scripts/inference/check_predictions.py --registry $ART/run_registry.csv --matrix $ART/training_matrix.csv --runs-dir $RUNS --folds-dir $ART/folds/fold_csvs --predictions $ART/predictions.parquet` | no file; the number of runs and prediction cells when the table is complete |
+
+Before it scores, the script refuses a source tree with changes, a run that
+is not complete or was trained from a tree with changes, and a run whose
+checkpoint, fold manifest, head order or feature-store rows differ from its
+training record. Each model scores the validation and test slides of its
+fold once, with the checkpoint that training selected: the complete bag of
+each slide, float32, dropout off, one sigmoid per head. Training slides are
+not scored. A masked cell gets a score and keeps its mask. The table and its
+record are written to temporary files and move to the output path only when
+the table is complete, so a stopped job leaves no partial table there. The
+checker compares the table cell by cell with the cells of the registry, the
+head mappings and the fold manifests, and compares the input hashes in the
+record with the current inputs. The evaluation uses the test rows only.
+
+The later parts (evaluation, reader study, manuscript) are added here
+as they are released.
