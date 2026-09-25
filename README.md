@@ -11,8 +11,9 @@ report-derived and the blinded reference.
 - `scripts/`: the steps of the pipeline, one script each, grouped by part.
 - `configs/`: the configuration files of the steps that take one.
 - `docs/pipeline.md`: the order of operations with the command for each step.
-- `manuscript/`: the tables and figures of the manuscript, each with the
-  numbers it shows and its provenance.
+- `manuscript/`: the figures of the manuscript as PDF and PNG. The scripts
+  in `scripts/manuscript/` write each figure and table again, with the numbers
+  it shows and its provenance (`docs/pipeline.md`, section 6).
 - `tests/`: unit tests of the library and the scripts.
 
 ## Setup

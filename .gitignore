@@ -3,3 +3,11 @@ logs/
 __pycache__/
 *.egg-info/
 .pytest_cache/
+
+# Rendered displays: only the figures (PDF and PNG) are in the repository.
+# The scripts in scripts/manuscript/ write the tables, the source data and the
+# provenance records again.
+manuscript/**
+!manuscript/**/
+!manuscript/**/*.pdf
+!manuscript/**/*.png
