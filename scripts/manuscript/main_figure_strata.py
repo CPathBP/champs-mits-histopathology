@@ -151,8 +151,10 @@ def main():
     style.apply()
     save_figure(figure(age, adjusted), args.out_dir, "main_figure_strata", {"": source}, inputs,
                 draft=args.draft)
+    # The level names are long; wrap them so that the table fits the page width.
     write_table(strata_table(model, baseline), args.out_dir, "supplementary_table_strata",
-                inputs, group_column="Finding", header_width=12, long=True, draft=args.draft)
+                inputs, align=r"ll>{\raggedright\arraybackslash}p{2.7cm}rrrrr",
+                group_column="Finding", header_width=12, long=True, draft=args.draft)
     write_table(adjusted_table(adjusted), args.out_dir, "supplementary_table_strata_adjusted",
                 inputs, group_column="Finding", header_width=12, long=True, draft=args.draft)
 
